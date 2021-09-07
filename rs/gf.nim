@@ -1,6 +1,6 @@
 {.push raises: [Defect].}
 
-{.experimental: "codeReordering".}
+# {.experimental: "codeReordering".}
 
 import std/[sequtils, math, typetraits]
 
@@ -8,7 +8,7 @@ const
   Char* {.intdefine.} = 2'u
   Exp* {.intdefine.} = 8'u
   Order* = (Char ^ Exp)
-  Degree* = Order - 1
+  Degree* = Order - 1'u
 
 proc multNoLUT*(
   x, y, prim: SomeUnsignedInt,
@@ -40,10 +40,8 @@ proc multNoLUT*(
     y = y shr 1
     x = x shl 1
     if prim > 0'u and bool(x and fieldSize):
-      # GF modulo: if x >= 256 then apply modular
+      # GF modulo: if x >= field size then apply modular
       # reduction using the primitive polynomial
-      # (we just substract, but since the primitive
-      # number can be above 256 then we directly XOR).
       x = (x xor prim)
 
   r
@@ -136,22 +134,54 @@ proc findPrimePolys(
   # Return the list of all prime polynomials
   return correctPrimes
 
-when Exp == 8:
-  type GFUint* = distinct uint8
-elif Exp == 16:
-  type GFUint* = distinct uint16
-elif Exp == 32:
-  type GFUint* = distinct uint32
-else:
-  {.fatal: "Fields of size > p^32 aren't supported!".}
+template GFUintOp(typ: type) {.dirty.} =
+  proc `+`*(x: typ, y: uint): typ {.borrow, noSideEffect.}
+  proc `+`*(x: uint, y: typ): typ {.borrow, noSideEffect.}
+
+  proc `-`*(x: typ, y: uint): typ {.borrow, noSideEffect.}
+  proc `-`*(x: uint, y: typ): typ {.borrow, noSideEffect.}
+
+  # Not closed over type in question (Slot or Epoch)
+  proc `mod`*(x: typ, y: typ): typ {.borrow, noSideEffect.}
+  proc `mod`*(x: typ, y: uint): uint {.borrow, noSideEffect.}
+
+  proc `xor`*(x: typ, y: typ): typ {.borrow, noSideEffect.}
+  proc `xor`*(x: typ, y: uint): uint {.borrow, noSideEffect.}
+
+  proc `div`*(x: typ, y: uint): uint {.borrow, noSideEffect.}
+  proc `div`*(x: uint, y: typ): uint {.borrow, noSideEffect.}
+
+  proc `*`*(x: typ, y: uint): uint {.borrow, noSideEffect.}
+
+  proc `+=`*(x: var typ, y: typ) {.borrow, noSideEffect.}
+  proc `+=`*(x: var typ, y: uint) {.borrow, noSideEffect.}
+  proc `-=`*(x: var typ, y: typ) {.borrow, noSideEffect.}
+  proc `-=`*(x: var typ, y: uint) {.borrow, noSideEffect.}
+
+  # Comparison operators
+  proc `<`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
+  proc `<`*(x: typ, y: uint): bool {.borrow, noSideEffect.}
+  proc `<`*(x: uint, y: typ): bool {.borrow, noSideEffect.}
+
+  proc `<=`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
+  proc `<=`*(x: typ, y: uint): bool {.borrow, noSideEffect.}
+  proc `<=`*(x: uint, y: typ): bool {.borrow, noSideEffect.}
+
+  proc `==`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
+  proc `==`*(x: typ, y: uint): bool {.borrow, noSideEffect.}
+  proc `==`*(x: uint, y: typ): bool {.borrow, noSideEffect.}
+
+  # Nim integration
+  proc `$`*(x: typ): string {.borrow, noSideEffect.}
+
+type
+  GFUint* = distinct uint
 
 const
   PrimePoly* {.intdefine.} = findPrimePolys(Char, Exp, true)[0]
-  # PrimePoly* {.intdefine.} = 0x11d
-  (GFExp, GFLog) = block:
+  (GFExp*, GFLog*) = block:
     var
       gfExp = newSeq[GFUint](Degree * 2) # Anti-log (exponential) table.
-                                         # The first two elements will always be [GF256int(1), generator]
       gfLog = newSeq[GFUint](Order)      # Log table, log[0] is impossible and thus unused
 
     # For each possible value in the galois field 2^8, we will pre-compute
@@ -161,7 +191,7 @@ const
     # starting with the element 0 followed by the (p-1) successive powers of
     # the generator a : 1, a, a^1, a^2, ..., a^(p-1).
     var x = 1'u
-    for i in 0'u..<Degree:
+    for i in 0..<Degree:
       gfExp[i] = x.GFUint # compute anti-log for this value and store it in a table
       gfLog[x] = i.GFUint # compute log at the same time
       x = multNoLUT(x, Char, PrimePoly, Order)
@@ -174,37 +204,36 @@ const
 
     (gfExp, gfLog)
 
-proc `==`*(x, y: GFUint): bool {.borrow.}
+GFUintOp GFUint
 
-proc `$`*(x: GFUint): string =
-  type TT = distinctBase(type x)
-  $TT(x)
+proc `[]`*[T](a: seq[T], i: GFUint): T = a[i]
 
 proc `+`*(x, y: GFUint): GFUint =
-  return GFUint(x.uint xor y.uint)
+  x xor y
 
 proc `-`*(x, y: GFUint): GFUint =
   # in binary galois field, substraction
   # is just the same as addition (since we mod 2)
-  return GFUint(x.uint xor y.uint)
+  x xor y
 
 proc `*`*(x, y: GFUint): GFUint =
-  if x == 0.GFUint or y == 0.GFUint:
+  if x == 0 or y == 0:
     return 0.GFUint
 
-  return GFExp[((GFLog[x.uint].uint + GFLog[y.int].uint) mod Degree)]
+  GFExp[((GFLog[x] + GFLog[y]) mod Degree)].GFUint
 
-proc `/`*(x, y: GFUint): GFUint =
-  if y == 0.GFUint:
+proc `div`*(x, y: GFUint): GFUint =
+  if y == 0:
+    # TODO: use DivByZeroDefect once we drop 1.2.6
     raise newException(DivByZeroError, "Can't divide by 0!")
 
-  if x == 0.GFUint:
+  if x == 0:
     return 0.GFUint
 
-  return GFExp[((GFLog[x.uint].uint + Degree) - GFLog[y.uint].uint) mod Degree]
+  GFExp[((GFLog[x] + Degree) - GFLog[y]) mod Degree].GFUint
 
-proc `^`*(x: GFUint, power: int): GFUint =
-  return GFExp[(GFLog[x.uint].uint * power.uint) mod (Order - 1)]
+proc `^`*(x: GFUint, power: uint): GFUint =
+  GFExp[(GFLog[x] * power) mod (Order - 1)].GFUint
 
 func inverse*(x: GFUint): GFUint =
-  return GFExp[(Degree - GFLog[x.uint].uint)] # gf_inverse(x) == gf_div(1, x)
+  GFExp[(Degree - GFLog[x])].GFUint
