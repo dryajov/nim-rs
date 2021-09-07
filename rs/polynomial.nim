@@ -1,26 +1,21 @@
 import std/sequtils
 
 import ./gf
-
 export gf
 
-type
-  GFPolynomial* = distinct seq[GFUint]
+proc `+`*(p, q: seq[GFUint]): seq[GFUint] =
+  var
+    r = newSeq[GFUint](max(p.len, q.len))
 
-proc scale*(p: GFPolynomial, x: int): GFPolynomial =
-  p.mapIt(it * x)
+  for i in 0..<p.len:
+    r[i + r.len - p.len] = p[i]
 
-proc `+`*(p, q: GFPolynomial): GFPolynomial =
-  var r = newSeq[SomeGFuint](max(len(p),len(q)))
-  for i in 0..<len(p):
-    r[i+len(r)-len(p)] = p[i]
-
-  for i in 0..<len(q):
-    r[i+len(r)-len(q)] = r[i+len(r)-len(q)] xor q[i]
+  for i in 0..<q.len:
+    r[i+r.len - q.len] = r[i+r.len - q.len] + q[i]
 
   return r
 
-proc `*`*(p, q: GFPolynomial): GFPolynomial =
+proc `*`*(p, q: seq[GFUint]): seq[GFUint] =
   ## Multiply two polynomials, inside Galois Field
   ## (but the procedure is generic).
   ##
@@ -29,39 +24,44 @@ proc `*`*(p, q: GFPolynomial): GFPolynomial =
 
   var
     # Pre-allocate the result array
-    r = newSeq[GFUint](((len(p) + len(q) - 1)))
+    r = newSeq[GFUint](((p.len + q.len - 1)))
 
     # Precompute the logarithm of p
-    lp = p.mapIt(GFLog[it])
+    lp = p.mapIt(GFLog[it.uint])
 
-  # Compute the polynomial multiplication (just like the outer product of two vectors, we multiply each coefficients of p with all coefficients of q)
-  for j in 0..<len(q):
-    var qj = q[j] # optimization: load the coefficient once
-    if qj != 0: # log(0) is undefined, we need to check that
-      var lq = GFLog[qj] # Optimization: precache the logarithm of the current coefficient of q
-      for i in 0..<len(p):
-        if p[i] != 0: # log(0) is undefined, need to check that...
-          r[i + j] = (r[i + j] xor GFExp[lp[i] + lq]) # equivalent to: r[i + j] = gf_add(r[i+j], gf_mul(p[i], q[j]))
+  # Compute the polynomial multiplication
+  # Just like the outer product of two vectors,
+  # we multiply each coefficients of p with all
+  # coefficients of q
+  for j in 0..<q.len:
+    if q[j].uint != 0: # log(0) is undefined, we need to check that
+      let lq = GFLog[q[j].uint] # Optimization: precache the logarithm of the current coefficient of q
+      for i in 0..<p.len:
+        if p[i] != 0.GFUint: # log(0) is undefined, need to check that...
+          r[i + j] = (r[i + j] xor GFExp[lp[i] + lq].GFUint)
 
   return r
 
-proc mulSimple*(p, q: seq[int]): seq[int] =
-  ## Multiply two polynomials, inside Galois Field
+proc mulSimple*(p, q: seq[GFUint]): seq[GFUint] =
+  ## Multiply two polynomials in a Galois Field
   ##
   ## simple equivalent way of multiplying two polynomials
-  ## without precomputation, but thus it's slower
+  ## without precomputation, but slower
   ##
 
   # Pre-allocate the result array
-  var r = repeat(0, max(len(p),len(q)))
-  # Compute the polynomial multiplication (just like the outer product of two vectors, we multiply each coefficients of p with all coefficients of q)
-  for j in 0..<len(q):
-    for i in 0..<len(p):
-      r[i + j] = r[i + j] xor p[i] * q[j] # equivalent to: r[i + j] = gf_add(r[i+j], gf_mul(p[i], q[j])) -- you can see it's your usual polynomial multiplication
+  var r = newSeq[GFUint](max(p.len, q.len))
+  # Compute the polynomial multiplication
+  for j in 0..<q.len:
+    for i in 0..<p.len:
+      r[i + j] = r[i + j] xor p[i] * q[j]
 
   return r
 
-proc neg*(poly: GFPolynomial): int =
+proc scale*(p: seq[GFUint], x: int): seq[GFUint] =
+  p.mapIt(it * x.GFUint)
+
+proc neg*(poly: seq[GFUint]): seq[GFUint] =
   ## Returns the polynomial with all coefficients negated.
   ## In GF(2^p), negation does not change the coefficient,
   ## so we return the polynomial as-is.
@@ -70,8 +70,7 @@ proc neg*(poly: GFPolynomial): int =
   # TODO: we support arbitrary GF(x^p) fields
   poly
 
-
-proc `div`(dividend, divisor: GFPolynomial): (GFPolynomial, GFPolynomial) =
+proc `/`(dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
   ## Fast polynomial division by using Extended Synthetic Division and
   ## optimized for GF(2^p) computations (doesn't work with standard
   ## polynomials outside of this galois field, see the Wikipedia article
@@ -82,34 +81,31 @@ proc `div`(dividend, divisor: GFPolynomial): (GFPolynomial, GFPolynomial) =
   # the terms must go from the biggest to lowest degree (while most other functions here expect
   # a list from lowest to biggest degree). eg: 1 + 2x + 5x^2 = [5, 2, 1], NOT [1, 2, 5]
 
-  var msg_out = dividend # Copy the dividend list and pad with 0 where the ecc bytes will be computed
+  var msgOut = dividend # Copy the dividend list and pad with 0 where the ecc bytes will be computed
   #normalizer = divisor[0] # precomputing for performance
-  for i in 0..<(len(dividend) - (len(divisor)-1)):
-    #msg_out[i] /= normalizer # for general polynomial division (when polynomials are non-monic), the usual way of using
-                              # synthetic division is to divide the divisor g(x) with its leading coefficient, but not needed here.
-    var coef = msg_out[i] # precaching
-    if coef != 0: # log(0) is undefined, so we need to avoid that case explicitly (and it's also a good optimization).
+  for i in 0..<(dividend.len - (divisor.len - 1)):
+    #msgOut[i] /= normalizer # for general polynomial division (when polynomials are non-monic), the usual way of using
+                             # synthetic division is to divide the divisor g(x) with its leading coefficient, but not needed here.
+    var coef = msgOut[i] # precaching
+    if coef != 0.GFUint: # log(0) is undefined, so we need to avoid that case explicitly (and it's also a good optimization).
       for j in 1..<divisor.len: # in synthetic division, we always skip the first coefficient of the divisior,
                                         # because it's only used to normalize the dividend coefficient
-        if divisor[j] != 0: # log(0) is undefined
-            msg_out[i + j] = msg_out[i + j] xor divisor[j] * coef # equivalent to the more mathematically correct
-                                                          # (but xoring directly is faster): msg_out[i + j] += -divisor[j] * coef
+        if divisor[j] != 0.GFUint: # log(0) is undefined
+            msgOut[i + j] = msgOut[i + j] xor divisor[j] * coef # equivalent to the more mathematically correct
+                                                          # (but xoring directly is faster): msgOut[i + j] += -divisor[j] * coef
 
-  # The resulting msg_out contains both the quotient and the remainder, the remainder being the size of the divisor
+  # The resulting msgOut contains both the quotient and the remainder, the remainder being the size of the divisor
   # (the remainder has necessarily the same degree as the divisor -- not length but degree == length-1 -- since it's
   # what we couldn't divide from the dividend), so we compute the index where this separation is, and return the quotient and remainder.
   let separator = (len(divisor) - 1)
-  return (msg_out[0..separator], msg_out[separator..msg_out.high]) # return quotient, remainder.
+  return (msgOut[0..separator], msgOut[separator..msgOut.high]) # return quotient, remainder.
 
-proc Eval*(poly: GFPolynomial, x: int): GFPolynomial =
+proc eval*(poly: seq[GFUint], x: int): GFUint =
   ## Evaluates a polynomial in GF(2^p) given the value for x.
   ## This is based on Horner's scheme for maximum efficiency.
   ##
-
-  # writeStackTrace()
   var y = poly[0]
-  for i in 1..<len(poly):
-    y = ((y * x) xor poly[i])
+  for i in 1..poly.high:
+    y = ((y * x.GFUint) xor poly[i])
 
   return y
-
