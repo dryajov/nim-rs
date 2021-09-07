@@ -181,37 +181,30 @@ proc `$`*(x: GFUint): string =
   $TT(x)
 
 proc `+`*(x, y: GFUint): GFUint =
-  type TT = distinctBase(type x)
-  return GFUint(x.TT xor y.TT)
+  return GFUint(x.uint xor y.uint)
 
 proc `-`*(x, y: GFUint): GFUint =
   # in binary galois field, substraction
   # is just the same as addition (since we mod 2)
-  type TT = distinctBase(type x)
-  return GFUint(x.TT xor y.TT)
+  return GFUint(x.uint xor y.uint)
 
 proc `*`*(x, y: GFUint): GFUint =
-  type TT = distinctBase(type x)
   if x == 0.GFUint or y == 0.GFUint:
     return 0.GFUint
 
-  echo GFLog
-  return GFExp[(((GFLog[x.TT] + GFLog[y.TT]).TT mod Degree))]
+  return GFExp[((GFLog[x.uint].uint + GFLog[y.int].uint) mod Degree)]
 
-proc `div`*(x, y: GFUint): GFUint =
-  type TT = distinctBase(type x)
+proc `/`*(x, y: GFUint): GFUint =
   if y == 0.GFUint:
     raise newException(DivByZeroError, "Can't divide by 0!")
 
   if x == 0.GFUint:
     return 0.GFUint
 
-  return GFExp[((GFLog[x.TT].TT + Degree) - GFLog[y.TT].TT).TT mod Degree]
+  return GFExp[((GFLog[x.uint].uint + Degree) - GFLog[y.uint].uint) mod Degree]
 
 proc `^`*(x: GFUint, power: int): GFUint =
-  type TT = distinctBase(type x)
-  return GFExp[(GFLog[x.TT].TT * power.TT) mod (Order - 1)]
+  return GFExp[(GFLog[x.uint].uint * power.uint) mod (Order - 1)]
 
 func inverse*(x: GFUint): GFUint =
-  type TT = distinctBase(type x)
-  return GFExp[(Degree - GFLog[x.TT].TT)] # gf_inverse(x) == gf_div(1, x)
+  return GFExp[(Degree - GFLog[x.uint].uint)] # gf_inverse(x) == gf_div(1, x)
