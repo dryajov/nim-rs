@@ -56,7 +56,7 @@ proc rwhPrimes1(n: int): seq[uint] =
     size = ceil(n / 2).int
     primeRange = floor((float(n).pow 0.5) + 1).int
 
-  var sieve = repeat(true, size - 1)
+  var sieve = newSeqWith(size - 1, true)
   for i in countup(3, primeRange - 1, 2):
     if sieve[floor(i/2).int]:
       for j in countup(floor((i*i)/2).int, sieve.high, i):
@@ -182,8 +182,8 @@ const
   PrimePoly* {.intdefine.} = findPrimePolys(Char, Exp, true)[0]
   (GFExp*, GFLog*) = block:
     var
-      gfExp = newSeq[GFUint](Degree * 2) # Anti-log (exponential) table.
-      gfLog = newSeq[GFUint](Order)      # Log table, log[0] is impossible and thus unused
+      gfExp = newSeq[uint](Degree * 2) # Anti-log (exponential) table.
+      gfLog = newSeq[uint](Order)      # Log table, log[0] is impossible and thus unused
 
     # For each possible value in the galois field 2^8, we will pre-compute
     # the logarithm and anti-logarithm (exponential) of this value
@@ -193,8 +193,8 @@ const
     # the generator a : 1, a, a^1, a^2, ..., a^(p-1).
     var x = 1'u
     for i in 0..<Degree:
-      gfExp[i] = x.GFUint # compute anti-log for this value and store it in a table
-      gfLog[x] = i.GFUint # compute log at the same time
+      gfExp[i] = x.uint # compute anti-log for this value and store it in a table
+      gfLog[x] = i.uint # compute log at the same time
       x = multNoLUT(x, Char, PrimePoly, Order)
 
     # Optimization: double the size of the anti-log table so
@@ -207,7 +207,8 @@ const
 
 GFUintOp GFUint
 
-proc `[]`*[T](a: seq[T], i: GFUint): T = a[i]
+proc `[]`*[T](a: seq[T], i: GFUint): T =
+  a[i.int]
 
 proc `+`*(x, y: GFUint): GFUint =
   x xor y
@@ -221,7 +222,7 @@ proc `*`*(x, y: GFUint): GFUint =
   if x == 0 or y == 0:
     return 0.GFUint
 
-  GFExp[((GFLog[x] + GFLog[y]) mod Degree)]
+  GFExp[((GFLog[x] + GFLog[y]) mod Degree)].GFUint
 
 proc `div`*(x, y: GFUint): GFUint =
   if y == 0:
@@ -231,13 +232,13 @@ proc `div`*(x, y: GFUint): GFUint =
   if x == 0:
     return 0.GFUint
 
-  GFExp[((GFLog[x] + Degree) - GFLog[y]) mod Degree]
+  GFExp[((GFLog[x] + Degree) - GFLog[y]) mod Degree].GFUint
 
 proc `/`*(x, y: GFUint): GFUint =
   x div y
 
-proc `^`*(x: GFUint, power: GFUint | int): GFUint =
-  GFExp[(GFLog[x] * power.GFUint) mod (Order - 1)]
+proc `^`*(x: GFUint, power: int): GFUint =
+  GFExp[(GFLog[x] * power.uint) mod Degree].GFUint
 
-func inverse*(x: GFUint): GFUint =
-  GFExp[(Degree - GFLog[x])]
+proc inverse*(x: GFUint): GFUint =
+  GFExp[(Degree - GFLog[x])].GFUint
