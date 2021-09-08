@@ -27,7 +27,7 @@ proc `*`*(p, q: seq[GFUint]): seq[GFUint] =
     r = newSeq[GFUint](((p.len + q.len - 1)))
 
     # Precompute the logarithm of p
-    lp = p.mapIt(GFLog[it.uint])
+    lp = p.mapIt(GFLog[it])
 
   # Compute the polynomial multiplication
   # Just like the outer product of two vectors,
@@ -58,8 +58,8 @@ proc mulSimple*(p, q: seq[GFUint]): seq[GFUint] =
 
   return r
 
-proc scale*(p: seq[GFUint], x: int): seq[GFUint] =
-  p.mapIt(it * x.GFUint)
+proc scale*(p: seq[GFUint], x: int | GFUint): seq[GFUint] =
+  p.mapIt(it * x)
 
 proc neg*(poly: seq[GFUint]): seq[GFUint] =
   ## Returns the polynomial with all coefficients negated.
@@ -70,7 +70,7 @@ proc neg*(poly: seq[GFUint]): seq[GFUint] =
   # TODO: we support arbitrary GF(x^p) fields
   poly
 
-proc `/`(dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
+proc `div`*(dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
   ## Fast polynomial division by using Extended Synthetic Division and
   ## optimized for GF(2^p) computations (doesn't work with standard
   ## polynomials outside of this galois field, see the Wikipedia article
@@ -100,7 +100,10 @@ proc `/`(dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
   let separator = (len(divisor) - 1)
   return (msgOut[0..separator], msgOut[separator..msgOut.high]) # return quotient, remainder.
 
-proc eval*(poly: seq[GFUint], x: int): GFUint =
+proc `/`*(dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
+  dividend div divisor
+
+proc eval*(poly: seq[GFUint], x: GFUint | int): GFUint =
   ## Evaluates a polynomial in GF(2^p) given the value for x.
   ## This is based on Horner's scheme for maximum efficiency.
   ##
