@@ -24,7 +24,7 @@ proc `*`*(p, q: seq[GFUint]): seq[GFUint] =
 
   var
     # Pre-allocate the result array
-    r = newSeq[GFUint](((p.len + q.len - 1)))
+    r = newSeq[GFUint](p.len + q.len - 1)
 
     # Precompute the logarithm of p
     lp = p.mapIt(GFLog[it])
@@ -38,7 +38,7 @@ proc `*`*(p, q: seq[GFUint]): seq[GFUint] =
       let lq = GFLog[q[j]] # Optimization: precache the logarithm of the current coefficient of q
       for i in 0..<p.len:
         if p[i] != 0.GFUint: # log(0) is undefined, need to check that...
-          r[i + j] = (r[i + j] xor GFExp[lp[i] + lq])
+          r[i + j] = (r[i + j] xor GFExp[lp[i] + lq].GFUint)
 
   return r
 
@@ -70,36 +70,40 @@ proc neg*(poly: seq[GFUint]): seq[GFUint] =
   # TODO: we support arbitrary GF(x^p) fields
   poly
 
-proc `div`*(dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
+proc `div`*(
+  dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
   ## Fast polynomial division by using Extended Synthetic Division and
-  ## optimized for GF(2^p) computations (doesn't work with standard
+  ## optimized for GF(2^p) computations - doesn't work with standard
   ## polynomials outside of this galois field, see the Wikipedia article
-  ## for generic algorithm).
+  ## for generic algorithm.
   ##
 
-  # CAUTION: this function expects polynomials to follow the opposite convention at decoding:
-  # the terms must go from the biggest to lowest degree (while most other functions here expect
-  # a list from lowest to biggest degree). eg: 1 + 2x + 5x^2 = [5, 2, 1], NOT [1, 2, 5]
+  # NOTE: this function expects polynomials to follow the opposite
+  # convention at decoding: the terms must go from the biggest to lowest
+  # degree - while most other functions here expect a list from lowest
+  # to biggest degree
+  #
+  # eg: 1 + 2x + 5x^2 = [5, 2, 1], NOT [1, 2, 5]
 
-  var msgOut = dividend # Copy the dividend list and pad with 0 where the ecc bytes will be computed
-  #normalizer = divisor[0] # precomputing for performance
-  for i in 0..<(dividend.len - (divisor.len - 1)):
-    #msgOut[i] /= normalizer # for general polynomial division (when polynomials are non-monic), the usual way of using
-                             # synthetic division is to divide the divisor g(x) with its leading coefficient, but not needed here.
-    var coef = msgOut[i] # precaching
-    if coef != 0.GFUint: # log(0) is undefined, so we need to avoid that case explicitly (and it's also a good optimization).
-      for j in 1..<divisor.len: # in synthetic division, we always skip the first coefficient of the divisior,
-                                        # because it's only used to normalize the dividend coefficient
-        if divisor[j] != 0.GFUint: # log(0) is undefined
-            msgOut[i + j] = msgOut[i + j] xor divisor[j] * coef # equivalent to the more mathematically correct
-                                                          # (but xoring directly is faster): msgOut[i + j] += -divisor[j] * coef
+  var
+    res = dividend
 
-  # The resulting msgOut contains both the quotient and the remainder, the remainder being the size of the divisor
-  # (the remainder has necessarily the same degree as the divisor -- not length but degree == length-1 -- since it's
-  # what we couldn't divide from the dividend), so we compute the index where this separation is, and return the quotient and remainder.
-  let
-    separator = (len(divisor) - 1)
-  return (msgOut[0..separator], msgOut[separator..msgOut.high]) # return quotient, remainder.
+  # resize to hold both the result and remainder
+  res.setLen(dividend.len + divisor.high)
+  for i in 0..<dividend.len:
+    let coef = res[i]
+    if coef == 0.GFUint:
+      continue
+
+    # skip the first coeficient of the divisor -
+    # only used to normalize the divident coeficient
+    for j in 1..<divisor.len:
+      if divisor[j] == 0.GFUint: # log(0) is undefined
+        continue
+
+      res[i + j] = res[i + j] xor (divisor[j] * coef)
+
+  return (res[0..dividend.high], res[dividend.len..res.high]) # return quotient, remainder.
 
 proc `/`*(dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
   dividend div divisor
