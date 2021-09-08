@@ -52,17 +52,18 @@ proc rwhPrimes1(n: int): seq[uint] =
   ##
 
   # TODO: rewrite this!
-  let size = int(ceil(n / 2))
+  let
+    size = ceil(n / 2).int
+    primeRange = floor((float(n).pow 0.5) + 1).int
+
   var sieve = repeat(true, size - 1)
-  let primeRange = int(floor((float(n).pow 0.5) + 1))
   for i in countup(3, primeRange - 1, 2):
-    let index = int(floor(i/2))
-    if sieve[index]:
-      for j in countup(int(floor((i*i)/2)), sieve.high, i):
+    if sieve[floor(i/2).int]:
+      for j in countup(floor((i*i)/2).int, sieve.high, i):
         sieve[j] = false
 
   result = @[2'u]
-  for i in 1..<size - 1:
+  for i in 1..<(size - 1):
      if sieve[i]:
        result.add((2 * i + 1).uint)
 
@@ -76,21 +77,21 @@ proc findPrimePolys(
   ## in this field
   ##
 
+
   let
     DegreeNext = ((generator ^ (cExp + 1'u)) - 1'u)
-
-  let primCandidates = if fastPrimes:
-    # generate maybe prime polynomials and check
-    # later if they really are irreducible
-    rwhPrimes1(DegreeNext.int).filterIt(
-      it > Degree # filter out too small primes
-    )
-  else:
-    # try each possible prime polynomial, but skip even numbers
-    # (because divisible by 2 so necessarily not irreducible)
-    toSeq(
-      countup(Degree + 2, DegreeNext - 1, generator))
-      .mapIt(it.uint)
+    primCandidates = if fastPrimes:
+      # generate maybe prime polynomials and check
+      # later if they really are irreducible
+      rwhPrimes1(DegreeNext.int).filterIt(
+        it > Degree # filter out too small primes
+      )
+    else:
+      # try each possible prime polynomial, but skip even numbers
+      # (because divisible by 2 so necessarily not irreducible)
+      toSeq(
+        countup(Degree + 2, DegreeNext - 1, generator))
+        .mapIt(it.uint)
 
   # Start of the main loop
   var correctPrimes: seq[uint]

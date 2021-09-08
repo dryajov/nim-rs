@@ -35,10 +35,10 @@ proc `*`*(p, q: seq[GFUint]): seq[GFUint] =
   # coefficients of q
   for j in 0..<q.len:
     if q[j].uint != 0: # log(0) is undefined, we need to check that
-      let lq = GFLog[q[j].uint] # Optimization: precache the logarithm of the current coefficient of q
+      let lq = GFLog[q[j]] # Optimization: precache the logarithm of the current coefficient of q
       for i in 0..<p.len:
         if p[i] != 0.GFUint: # log(0) is undefined, need to check that...
-          r[i + j] = (r[i + j] xor GFExp[lp[i] + lq].GFUint)
+          r[i + j] = (r[i + j] xor GFExp[lp[i] + lq])
 
   return r
 
@@ -97,7 +97,8 @@ proc `div`*(dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
   # The resulting msgOut contains both the quotient and the remainder, the remainder being the size of the divisor
   # (the remainder has necessarily the same degree as the divisor -- not length but degree == length-1 -- since it's
   # what we couldn't divide from the dividend), so we compute the index where this separation is, and return the quotient and remainder.
-  let separator = (len(divisor) - 1)
+  let
+    separator = (len(divisor) - 1)
   return (msgOut[0..separator], msgOut[separator..msgOut.high]) # return quotient, remainder.
 
 proc `/`*(dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
