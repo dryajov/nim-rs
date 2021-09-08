@@ -5,24 +5,26 @@
 import std/[strutils, algorithm, sequtils]
 import ./polynomial
 
+export polynomial
+
 proc generator*(
   nsym: int,
-  fcr = 0.GFUint,
-  generator = 2.GFUint): seq[GFUint] =
+  fcr = 0,
+  generator = Char.GFUint): seq[GFUint] =
   ## Generate an irreducible generator polynomial
   ## (necessary to encode a message into Reed-Solomon)
   ##
 
   var g = @[1.GFUint]
   for i in 0..<nsym:
-    g = g * @[1.GFUint, generator xor (i.GFUint + fcr)]
+    g = g * @[1.GFUint, generator ^ (i + fcr)]
 
   return g
 
 proc generatorAll*(
   maxSym: int,
-  fcr = 0.GFUint,
-  generator = 2.GFUint): seq[seq[GFUint]] =
+  fcr = 0,
+  generator = Char.GFUint): seq[seq[GFUint]] =
   ## Generate all irreducible generator polynomials up to maxSym
   ## (usually you can use n, the length of the message+ecc). Very
   ## useful to reduce processing time if you want to encode using
@@ -30,7 +32,7 @@ proc generatorAll*(
   ##
 
   var gen = newSeq[seq[GFUint]](maxSym)
-  # TODO: first two are always 1, maybe in GF(2^8)?
+  # TODO: first two are always 1 - maybe in GF(2^8)?
   gen[0] = @[1.GFUint]
   gen[1] = @[1.GFUint]
   for nsym in 0..<maxSym:
@@ -38,84 +40,37 @@ proc generatorAll*(
 
   return gen
 
-proc encodeSimple*(
-  msgIn: seq[GFUint],
-  nsym: int,
-  fcr = 0.GFUint,
-  generator = 2.GFUint,
-  gen: seq[GFUint] = @[]): seq[GFUint] {.raises: [ValueError].} =
-  ## Simple Reed-Solomon encoding (mainly an example for you to understand
-  ## how it works, because it's slower than the inlined function below)
-  ##
-
-  if (msgIn.len + nsym).uint > Order:
-    raise newException(
-      ValueError, "Message is too long ($1 when max is $2)" % [$(msgIn.len + nsym), $Order])
-
-  var gen = if gen.len <= 0:
-      generator(nsym, fcr, generator)
-    else:
-      gen
-
-  # Pad the message, then divide it by the irreducible generator polynomial
-  var (_, remainder) = msgIn[0..<gen.len - 1] / gen
-
-  # The remainder is our RS code! Just append it to our original
-  # message to get our full codeword (this represents a polynomial
-  # of max 256 terms)
-  return msgIn & remainder
-
 proc encode*(
-  msgIn: seq[GFUint],
+  msg: seq[GFUint],
   nsym: int,
-  fcr = 0.GFUint,
-  generator = 2.GFUint,
+  fcr = 0,
+  generator = Char.GFUint,
   gen: seq[GFUint] = @[]): seq[GFUint] {.raises: [ValueError].} =
-  ## Reed-Solomon main encoding function, using polynomial division
-  ## (Extended Synthetic Division, the fastest algorithm available to my knowledge),
-  ## better explained at http://research.swtch.com/field
+  ## Reed-Solomon encoding
   ##
 
-  if (msgIn.len + nsym).uint > Order:
+  if (msg.len + nsym).uint > Order:
     raise newException(
-      ValueError, "Message is too long ($1 when max is $2)" % [$(msgIn.len + nsym), $Order])
+      ValueError,
+      "Message is too long ($1 when max is $2)" % [$(msg.len + nsym), $Order])
 
   var gen = if gen.len <= 0:
       generator(nsym, fcr, generator)
     else:
       gen
 
-  # Init msgOut with the values inside msgIn and pad with len(gen)-1 bytes (which is the number of ecc symbols).
-  # Initializing the Synthetic Division with the dividend (= input message polynomial)
-  var msgOut = msgIn
-  msgOut.setLen((msgIn.len + (gen.len - 1)))
+  var (res, remainder) = msg / gen
 
-  # Synthetic division main loop
-  for i in 0..<msgIn.len:
-    # Note that it's msgOut here, not msgIn. Thus, we reuse the updated value at each iteration
-    # (this is how Synthetic Division works: instead of storing in a temporary register the intermediate values,
-    # we directly commit them to the output).
+  # TODO: Should not append to the message, return tuple
+  # to allow implementations choose how codes are stored
+  return msg & remainder # remainder is the RS code
 
-    let coef = msgOut[i]
-    # log(0) is undefined, so we need to manually check for this case.
-    if coef != 0:
-      # in synthetic division, we always skip the first coefficient of the divisior, because it's only used to normalize the dividend coefficient (which is here useless since the divisor, the generator polynomial, is always monic)
-      for j in 1..<gen.len:
-        #if gen[j] != 0: # log(0) is undefined so we need to check that, but it slow things down in fact and it's useless in our case (reed-solomon encoding) since we know that all coefficients in the generator are not 0
-        msgOut[i+j] = (msgOut[i+j] xor gen[j] * coef) # equivalent to msgOut[i+j] += gf_mul(gen[j], coef)
-
-  # At this point, the Extended Synthetic Divison is done, msgOut contains the quotient in msgOut[:len(msgIn)]
-  # and the remainder in msgOut[len(msgIn):]. Here for RS encoding, we don't need the quotient but only the remainder
-  # (which represents the RS code), so we can just overwrite the quotient with the input message, so that we get
-  # our complete codeword composed of the message + code.
-  return msgIn &  msgOut[msgIn.len..msgOut.high]
-
-# ################### REED-SOLOMON DECODING ###################
+################### REED-SOLOMON DECODING ###################
 
 proc clacSyndromes(
   msg: seq[GFUint],
   nsym: int,
-  fcr = 0.GFUint,
+  fcr = 0,
   generator = 2.GFUint): seq[GFUint] =
   ## Given the received codeword msg and the number of
   ## error correcting symbols (nsym), computes the syndromes
@@ -134,7 +89,7 @@ proc clacSyndromes(
   # of skipping the first iteration (ie, the often seen range(1, n-k+1)),
   var synd = newSeq[GFUint](nsym)
   for i in 0..<nsym:
-    synd[i] = msg.eval((generator ^ (i.GFUint + fcr)))
+    synd[i] = msg.eval((generator ^ (i + fcr)))
 
   return @[0.GFUint] & synd # pad with one 0 for mathematical precision (else we can end up with weird calculations sometimes)
 
