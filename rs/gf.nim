@@ -134,7 +134,7 @@ proc findPrimePolys(
   # Return the list of all prime polynomials
   return correctPrimes
 
-template GFUintOp(typ: type) {.dirty.} =
+template GFUintOp*(typ: type) {.dirty.} =
   proc `+`*(x: typ, y: uint): typ {.borrow, noSideEffect.}
   proc `+`*(x: uint, y: typ): typ {.borrow, noSideEffect.}
 
@@ -220,7 +220,7 @@ proc `*`*(x, y: GFUint): GFUint =
   if x == 0 or y == 0:
     return 0.GFUint
 
-  GFExp[((GFLog[x] + GFLog[y]) mod Degree)].GFUint
+  GFExp[((GFLog[x] + GFLog[y]) mod Degree)]
 
 proc `div`*(x, y: GFUint): GFUint =
   if y == 0:
@@ -230,10 +230,13 @@ proc `div`*(x, y: GFUint): GFUint =
   if x == 0:
     return 0.GFUint
 
-  GFExp[((GFLog[x] + Degree) - GFLog[y]) mod Degree].GFUint
+  GFExp[((GFLog[x] + Degree) - GFLog[y]) mod Degree]
 
-proc `^`*(x: GFUint, power: uint): GFUint =
-  GFExp[(GFLog[x] * power) mod (Order - 1)].GFUint
+proc `/`*(x, y: GFUint): GFUint =
+  x div y
+
+proc `^`*(x: GFUint, power: GFUint | int): GFUint =
+  GFExp[(GFLog[x] * power.GFUint) mod (Order - 1)]
 
 func inverse*(x: GFUint): GFUint =
-  GFExp[(Degree - GFLog[x])].GFUint
+  GFExp[(Degree - GFLog[x])]
