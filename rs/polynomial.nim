@@ -11,7 +11,7 @@ proc `+`*(p, q: seq[GFUint]): seq[GFUint] =
     r[i + r.len - p.len] = p[i]
 
   for i in 0..<q.len:
-    r[i+r.len - q.len] = r[i+r.len - q.len] + q[i]
+    r[i + (r.len - q.len)] = r[i + (r.len - q.len)] + q[i]
 
   return r
 
@@ -103,13 +103,15 @@ proc `div`*(
 
       res[i + j] = res[i + j] xor (divisor[j] * coef)
 
-  return (res[0..dividend.high], res[dividend.len..res.high]) # return quotient, remainder.
+  return (
+    res[0..dividend.high],
+    res[dividend.len..res.high]) # return quotient, remainder.
 
 proc `/`*(dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
   dividend div divisor
 
 proc eval*(poly: seq[GFUint], x: GFUint | int): GFUint =
-  ## Evaluates a polynomial in GF(2^p) given the value for x.
+  ## Evaluates a polynomial in GF(n^p) given the value for x.
   ## This is based on Horner's scheme for maximum efficiency.
   ##
   var y = poly[0]
