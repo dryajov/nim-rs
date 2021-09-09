@@ -71,7 +71,7 @@ proc clacSyndromes(
   msg: seq[GFUint],
   nsym: int,
   fcr = 0,
-  generator = 2.GFUint): seq[GFUint] =
+  generator = Char.GFUint): seq[GFUint] =
   ## Given the received codeword msg and the number of
   ## error correcting symbols (nsym), computes the syndromes
   ## polynomial.
@@ -82,14 +82,14 @@ proc clacSyndromes(
 
   # Note the "[0] +" : we add a 0 coefficient for the lowest degree (the constant).
   # This effectively shifts the syndrome, and will shift every computations depending
-  # on the syndromes (such as the errors locator polynomial, errors evaluator polynomial,
-  # etc. but not the errors positions).
+  # on the syndromes - such as the errors locator polynomial, errors evaluator polynomial,
+  # etc. but not the errors positions.
   #
   # This is not necessary, you can adapt subsequent computations to start from 0 instead
   # of skipping the first iteration (ie, the often seen range(1, n-k+1)),
   var synd = newSeq[GFUint](nsym)
   for i in 0..<nsym:
-    synd[i] = msg.eval((generator ^ (i + fcr)))
+    synd[i] = msg.eval(generator ^ (i + fcr))
 
   return @[0.GFUint] & synd # pad with one 0 for mathematical precision (else we can end up with weird calculations sometimes)
 
@@ -224,9 +224,11 @@ proc findErrorLocator(
 
   return errLoc
 
-proc findErrataLocator(ePos: seq[int], generator = 2.GFUint): seq[GFUint] =
+proc findErrataLocator*(
+  ePos: seq[int],
+  generator = Char.GFUint): seq[GFUint] =
   ## Compute the erasures/errors/errata locator polynomial from the
-  ## erasures/errors/errata positions (the positions must be relative
+  ## erasures/errors/errata positions - the positions must be relative
   ## to the x coefficient, eg: "hello worldxxxxxxxxx" is tampered to
   ## "h_ll_ worldxxxxxxxxx" with xxxxxxxxx being the ecc of length
   ## n-k=9, here the string positions are [1, 4], but the coefficients
@@ -236,19 +238,22 @@ proc findErrataLocator(ePos: seq[int], generator = 2.GFUint): seq[GFUint] =
   ## as an argument.
   ##
 
-  var eLoc = @[1.GFUint] # just to init because we will multiply, so it must be 1 so that the multiplication starts correctly without nulling any term
-  # erasures_loc = product(1 - x*alpha**i) for i in erasures_pos and where alpha is the alpha chosen to evaluate polynomials.
+  # just to init because we will multiply, so it must be 1 so that
+  # the multiplication starts correctly without nulling any term
+  var eLoc = @[1.GFUint]
+  # erasures_loc = product(1 - x*alpha**i) for i in erasures_pos and where
+  # alpha is the alpha chosen to evaluate polynomials.
   for i in ePos:
     eLoc = eLoc * @[1.GFUint] + @[generator ^ i, 0.GFUint]
 
   return eLoc
 
-proc findErrorEvaluator(
+proc findErrorEvaluator*(
   synd: seq[GFUint],
   errLoc: seq[GFUint],
   nsym: int): seq[GFUint] =
-  ## Compute the error (or erasures if you supply
-  ## sigma=erasures locator polynomial, or errata)
+  ## Compute the error or erasures if you supply
+  ## sigma=erasures locator polynomial, or errata
   ## evaluator polynomial Omega from the syndrome
   ## and the error/erasures/errata locator Sigma.
   ##
@@ -258,58 +263,71 @@ proc findErrorEvaluator(
   # first multiply syndromes * errata_locator, then do a
   # polynomial division to truncate the polynomial to the
   # required length
-  var (_, remainder) = synd / (errLoc * @[1.GFUint] & newSeq[GFUint](nsym + 1))
+  let remainder = synd * errLoc
+  return remainder[(remainder.len - (nsym + 1))..remainder.high]
 
-  # Faster way that is equivalent
-  #remainder = gf_poly_mul(synd, errLoc) # first multiply the syndromes with the errata locator polynomial
-  #remainder = remainder[len(remainder)-(nsym+1):] # then slice the list to truncate it (which represents the polynomial), which
-                                                    # is equivalent to dividing by a polynomial of the length we want
-
-  return remainder
-
-proc correctErrata(
-  msgIn: seq[GFUint],
+proc correctErrata*(
+  msg: seq[GFUint],
   synd: seq[GFUint],
-  errPos: seq[int],
-  fcr = 0.GFUint,
-  generator = 2.GFUint): seq[GFUint] {.raises: [CatchableError].} = # errPos is a list of the positions of the errors/erasures/errata
+  errPos: seq[int], # errPos is a list of the positions of the errors/erasures/errata
+  fcr = 0,
+  generator = Char.GFUint): seq[GFUint] {.raises: [CatchableError].} =
   ## Forney algorithm, computes the values (error magnitude)
   ## to correct the input message.
   ##
 
-  # calculate errata locator polynomial to correct both errors and erasures (by combining the errors positions given by the error locator polynomial found by BM with the erasures positions given by caller)
+  # Calculate errata locator polynomial to correct both errors and erasures.
+  # By combining the errors positions given by the error locator polynomial
+  # found by BM with the erasures positions given by caller.
   let
-    coefPos = errPos.mapIt(msgIn.len - 1 - it) # need to convert the positions to coefficients degrees for the errata locator algo to work (eg: instead of [0, 1, 2] it will become [len(msg)-1, len(msg)-2, len(msg) -3])
+    # Need to convert the positions to coefficients degrees for the errata
+    # locator algo to work
+    #
+    # eg: instead of [0, 1, 2] it will become [len(msg)-1, len(msg)-2, len(msg)-3]
+    coefPos = errPos.mapIt(msg.len - 1 - it)
     errLoc = findErrataLocator(coefPos, generator)
-    # calculate errata evaluator polynomial (often called Omega or Gamma in academic papers)
-    errEval = findErrorEvaluator(synd.reversed(), errLoc, (errLoc.len - 1)).reversed()
+    # calculate errata evaluator polynomial
+    # often called Omega or Gamma in academic papers
+    errEval = findErrorEvaluator(
+      synd.reversed(),
+      errLoc,
+      (errLoc.len - 1)).reversed()
 
   # Second part of Chien search to get the error location polynomial X from
-  # the error positions in errPos (the roots of the error locator polynomial,
-  # ie, where it evaluates to 0)
+  # the error positions in errPos - the roots of the error locator polynomial,
+  # ie, where it evaluates to 0
   var X: seq[GFUint] # will store the position of the errors
   for i in 0..<coefPos.len:
     let
-      e = (Order - coefPos[i].uint)
-      p = (generator ^ (GFLog.len - e - 1).int)
+      e = Order - coefPos[i].uint
+      p = generator ^ (GFLog.len - e - 1).int
 
     X.add(p)
 
   # Forney algorithm: compute the magnitudes
   var
-    E = newSeq[GFUint](msgIn.len) # will store the values that need to be corrected (substracted) to the message containing errors. This is sometimes called the error magnitude polynomial.
+    # will store the values that need to be corrected
+    # (substracted) to the message containing errors.
+    # This is sometimes called the error magnitude
+    # polynomial.
+    E = newSeq[GFUint](msg.len)
     Xlength = X.len
 
   for i, Xi in X:
     let
       Xi_inv = Xi.inverse
 
-    # Compute the formal derivative of the error locator polynomial (see Blahut, Algebraic codes for data transmission, pp 196-197).
-    # the formal derivative of the errata locator is used as the denominator of the Forney Algorithm, which simply says that the ith error value is given by error_evaluator(gf_inverse(Xi)) / error_locator_derivative(gf_inverse(Xi)). See Blahut, Algebraic codes for data transmission, pp 196-197.
+    # Compute the formal derivative of the error locator polynomial
+    # (see Blahut, Algebraic codes for data transmission, pp 196-197).
+    # the formal derivative of the errata locator is used as the
+    # denominator of the Forney Algorithm, which simply says that the
+    # ith error value is given by
+    # error_evaluator(gf_inverse(Xi)) / error_locator_derivative(gf_inverse(Xi)).
+    # See Blahut, Algebraic codes for data transmission, pp 196-197.
     var errLocPrimeTmp: seq[GFUint]
     for j in 0..<Xlength:
       if j != i:
-          errLocPrimeTmp.add( 1 - Xi_inv * X[j] )
+          errLocPrimeTmp.add( 1.GFUint - (Xi_inv * X[j]) )
 
     # compute the product, which is the denominator of the Forney algorithm (errata locator derivative)
     var errLocPrime = 1.GFUint
@@ -318,15 +336,17 @@ proc correctErrata(
     # equivalent to: errLocPrime = functools.reduce(gf_mul, errLocPrimeTmp, 1)
 
     # Compute y (evaluation of the errata evaluator polynomial)
-    # This is a more faithful translation of the theoretical equation contrary to the old forney method. Here it is an exact reproduction:
+    # This is a more faithful translation of the theoretical
+    # equation contrary to the old forney method. Here it is an
+    # exact reproduction:
     # Yl = omega(Xl.inverse()) / prod(1 - Xj*Xl.inverse()) for j in len(X)
     var
       y = errEval.reversed().eval(Xi_inv) # numerator of the Forney algorithm (errata evaluator evaluated)
-    y = (Xi ^ 1) - fcr * y # adjust to fcr parameter
+    y = Xi ^ (1 - fcr) * y # adjust to fcr parameter
 
     # Check: errLocPrime (the divisor) should not be zero.
     if errLocPrime == 0:
-      raise newException(CatchableError, "Could not find error magnitude")    # Could not find error magnitude
+      raise newException(CatchableError, "Could not find error magnitude")
 
     # Compute the magnitude
     var
@@ -338,14 +358,21 @@ proc correctErrata(
 
     E[errPos[i]] = magnitude # store the magnitude for this error into the magnitude polynomial
 
-  # Apply the correction of values to get our message corrected! (note that the ecc bytes also gets corrected!)
-  # (this isn't the Forney algorithm, we just apply the result of decoding here)
-  return (msgIn + E) # equivalent to Ci = Ri - Ei where Ci is the correct message, Ri the received (senseword) message, and Ei the errata magnitudes (minus is replaced by XOR since it's equivalent in GF(2^p)). So in fact here we substract from the received message the errors magnitude, which logically corrects the value to what it should be.
+  # Apply the correction of values to get our message corrected!
+  # NOTE: that the ecc bytes also gets corrected!
+  # this isn't the Forney algorithm, we just apply the result of decoding here
+
+  # equivalent to Ci = Ri - Ei where Ci is the correct message,
+  # Ri the received (senseword) message, and Ei the errata magnitudes
+  # (minus is replaced by XOR since it's equivalent in GF(2^p)).
+  # So in fact here we substract from the received message the errors
+  # magnitude, which logically corrects the value to what it should be.
+  return (msg + E)
 
 proc findErrors(
   errLoc: seq[GFUint],
   nmess: int,
-  generator = 2.GFUint): seq[int] {.raises: [CatchableError].} = # nmess is len(msgIn)
+  generator = 2.GFUint): seq[int] {.raises: [CatchableError].} = # nmess is len(msg)
   ## Find the roots (ie, where evaluation = zero) of error polynomial
   ## by brute-force trial, this is a sort of Chien's search
   ## (but less efficient, Chien's search is a way to evaluate the
@@ -355,13 +382,17 @@ proc findErrors(
   var
     errs = errLoc.len - 1
     errPos: seq[int]
-  for i in 0..<nmess: # normally we should try all 2^8 possible values, but here we optimize to just check the interesting symbols
+
+  # normally we should try all 2^8 possible values, but here we
+  # optimize to just check the interesting symbols
+  for i in 0..<nmess:
     if errLoc.eval(generator ^ i) == 0: # It's a 0? Bingo, it's a root of the error locator polynomial,
                                                          # in other terms this is the location of an error
       errPos.add(nmess - 1 - i)
 
-  # Sanity check: the number of errors/errata positions found should be exactly the same as the length of the errata locator polynomial
-  if len(errPos) != errs:
+  # Sanity check: the number of errors/errata positions found should be
+  # exactly the same as the length of the errata locator polynomial
+  if errPos.len != errs:
     # couldn't find error locations
     raise newException(
       CatchableError,
@@ -401,48 +432,40 @@ proc forneySyndromes(
 
   return fsynd
 
-proc correctMsg(
-  msgIn: seq[GFUint],
+proc correctMsg*(
+  msg: seq[GFUint],
   nsym: int,
-  fcr = 0.GFUint,
-  generator = 2.GFUint,
+  fcr = 0,
+  generator = Char.GFUint,
   erasePos: seq[int] = @[],
-  onlyErasures = false):
+  erasures = false):
   (seq[GFUint], seq[GFUint]) {.raises: [ValueError, CatchableError].} =
   ## Reed-Solomon main decoding function
   ##
 
-  if msgIn.len > Order.int:
+  if msg.len > Order.int:
     # Note that it is in fact possible to encode/decode messages
     # that are longer than Order, but because this will be above
     # the field, this will generate more error positions during
     # Chien Search than it should, because this will generate
     # duplicate values, which should normally be prevented thank's
-    # to the prime polynomial reduction (eg, because it can't
+    # to the prime polynomial reduction - eg, because it can't
     # discriminate between error at position 1 or 256, both being
-    # exactly equal under galois field 2^8). So it's really not
-    # advised to do it, but it's possible (but then you're not
+    # exactly equal under galois field 2^8. So it's really not
+    # advised to do it, but it's possible - but then you're not
     # guaranted to be able to correct any error/erasure on symbols
     # with a position above the length of Order -- if you really
     # need a bigger message without chunking, then you should
-    # better enlarge c_exp so that you get a bigger field).
+    # better enlarge c_exp so that you get a bigger field.
     raise newException(
       ValueError,
-      "Message is too long (%1 when max is %2)" % [$len(msgIn), $Order])
+      "Message is too long (%1 when max is %2)" % [$len(msg), $Order])
 
   var
-    msgOut = msgIn     # copy of message
-
-  # erasures: set them to null bytes for easier decoding (but this is not necessary,
-  # they will be corrected anyway, but debugging will be easier with null bytes
-  # because the error locator polynomial values will only depend on the errors
-  # locations, not their values)
-  if erasePos.len > 0:
-    for ePos in erasePos:
-      msgOut[ePos] = 0.GFUint
+    msgOut = msg  # copy of message
 
   # check if there are too many erasures to correct (beyond the Singleton bound)
-  if len(erasePos) > nsym:
+  if erasePos.len > nsym:
     raise newException(CatchableError, "Too many erasures to correct")
 
   # prepare the syndrome polynomial using only errors
@@ -450,16 +473,16 @@ proc correctMsg(
   # or changed to another character, but we don't know their positions)
   var synd = clacSyndromes(msgOut, nsym, fcr, generator)
   # check if there's any error/erasure in the input codeword.
-  #mIf not (all syndromes coefficients are 0), then just return the message as-is.
+  # If not (all syndromes coefficients are 0), then just return the message as-is.
 
   if max(synd) == 0:
     return (
-      msgOut[0..<(msgOut.len-nsym)],
-      msgOut[(msgOut.len-nsym)..<msgOut.len])  # no errors
+      msgOut[0..<(msgOut.len - nsym)],
+      msgOut[(msgOut.len - nsym)..<msgOut.len])  # no errors
 
   # Find errors locations
   var errPos: seq[int]
-  if not onlyErasures:
+  if not erasures:
     let
       # compute the Forney syndromes, which hide the erasures from the original
       # syndrome (so that BM will just have to deal with errors, not erasures)
@@ -496,13 +519,13 @@ proc correctMsg(
     msgOut[(msgOut.len-nsym)..<msgOut.len]) # also return the corrected ecc block so that the user can check()
 
 proc correctMsgNoFsynd(
-  msgIn: seq[int],
+  msg: seq[GFUint],
   nsym: int,
   fcr = 0,
-  generator = 2,
+  generator = Char.GFUint,
   erasePos: seq[int] = @[],
-  onlyErasures = false):
-  (seq[int], seq[int]) {.raises: [ValueError].} =
+  erasures = false):
+  (seq[GFUint], seq[GFUint]) {.raises: [ValueError, CatchableError].} =
   ## Reed-Solomon main decoding function, without using the modified Forney syndromes
   ## This demonstrates how the decoding process is done without using the Forney syndromes
   ## (this is the most common way nowadays, avoiding Forney syndromes require to use a modified
@@ -510,11 +533,13 @@ proc correctMsgNoFsynd(
   ## modifying some initialization variables and the loop ranges)
   ##
 
-  if msgIn.len > Order.int:
-    raise newException(ValueError, "Message is too long ($1 when max is $2)" % [$len(msgIn), $Order])
+  if msg.len > Order.int:
+    raise newException(
+      ValueError,
+      "Message is too long ($1 when max is $2)" % [$len(msg), $Order])
 
   var
-    msgOut = msgIn  # copy of message
+    msgOut = msg  # copy of message
 
   # erasures: set them to null bytes for easier decoding
   # (but this is not necessary, they will be corrected anyway,
@@ -523,7 +548,7 @@ proc correctMsgNoFsynd(
   # the errors locations, not their values)
   if erasePos.len > 0:
     for ePos in erasePos:
-      msgOut[ePos] = 0
+      msgOut[ePos] = 0.GFUint
 
   # check if there are too many erasures
   if len(erasePos) > nsym:
@@ -544,19 +569,20 @@ proc correctMsgNoFsynd(
 
   # prepare erasures locator and evaluator polynomials
   var
-    eraseLoc: seq[int]
+    eraseLoc: seq[GFUint]
     #erase_eval = None
     eraseCount = 0
 
   if erasePos.len > 0:
-    eraseCount = len(erasePos)
+    eraseCount = erasePos.len
     eraseLoc = findErrataLocator(
-      erasePos.mapIt(len(msgOut)-1-it), generator=generator)
+      erasePos.mapIt((msgOut.len - 1 - it)),
+      generator = generator)
     #erase_eval = findErrorEvaluator(synd[::-1], eraseLoc, len(eraseLoc)-1)
 
   # prepare errors/errata locator polynomial
-  var errLoc: seq[int]
-  if onlyErasures:
+  var errLoc: seq[GFUint]
+  if erasures:
     errLoc = eraseLoc.reversed()
     #errEval = erase_eval[::-1]
   else:
@@ -580,48 +606,43 @@ proc correctMsgNoFsynd(
   # return the successfully decoded message
   return (msgOut[0..nsym], msgOut[nsym..<msgOut.len]) # also return the corrected ecc block so that the user can check()
 
-# proc rs_check(msg: seq[int], nsym: int, fcr = 0, generator = 2): bool =
-#   ## Returns true if the message + ecc has no error of false
-#   ## otherwise (may not always catch a wrong decoding or a wrong
-#   ## message, particularly if there are too many errors
-#   ## -- above the Singleton bound --, but it usually does)
-#   return ( max(clacSyndromes(msg, nsym, fcr, generator)) == 0 )
+proc rs_check(msg: seq[GFUint], nsym: int, fcr = 0, generator = Char.GFUint): bool =
+  ## Returns true if the message + ecc has no error of false
+  ## otherwise (may not always catch a wrong decoding or a wrong
+  ## message, particularly if there are too many errors
+  ## -- above the Singleton bound --, but it usually does)
+  return ( max(clacSyndromes(msg, nsym, fcr, generator)) == 0 )
 
-# when isMainModule:
-#   import stew/byteutils
+when isMainModule:
+  import stew/byteutils
 
-#   initTables()
+  let msg = @[
+    0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x20, 0x52,
+    0x65, 0x65, 0x64, 0x2D, 0x53, 0x6F, 0x6C,
+    0x6F, 0x6D, 0x6F, 0x6E, 0x21 ]
+    .mapIt(it.GFUint)
 
-#   # echo "GF_LOG ", gf_log
-#   # echo "GF_EXP ", gf_exp
-#   # echo "FIELD ", Order
+  var msgOut = encode(msg, 10)
 
-#   let msgIn = @[
-#     0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x20, 0x52,
-#     0x65, 0x65, 0x64, 0x2D, 0x53, 0x6F, 0x6C,
-#     0x6F, 0x6D, 0x6F, 0x6E, 0x21 ]
+  # var strMsg: string
+  # for i in 0..<len(msg):
+  #   strMsg &= "0x" & uint8(msg[i]).toHex
+  #   strMsg &= " "
 
-#   var msg = encode(msgIn, 10)
+  echo msgOut
 
-#   var strMsg: string
-#   for i in 0..<len(msg):
-#     strMsg &= "0x" & uint8(msg[i]).toHex
-#     strMsg &= " "
+  msgOut[0] = 0.GFUint
+  # msgOut[10] = 0.GFUint
+  # msgOut[16] = 0.GFUint
+  # msgOut[14] = 0.GFUint
+  # msgOut[26] = 0.GFUint
 
-#   echo strMsg
+  let (correct, code) = correctMsg(msgOut, 10)
 
-#   msg[0] = 0
-#   msg[10] = 0
-#   msg[16] = 0
-#   msg[14] = 0
-#   msg[26] = 0
+  echo correct
+  # strMsg = ""
+  # for i in 0..<len(correct):
+  #   strMsg &= "0x" & uint8(correct[i]).toHex
+  #   strMsg &= " "
 
-#   let (correct, code) = correctMsg(msg, 10)
-
-#   strMsg = ""
-#   for i in 0..<len(correct):
-#     strMsg &= "0x" & uint8(correct[i]).toHex
-#     strMsg &= " "
-
-#   echo "MESSAGE ", strMsg
-
+  # echo "MESSAGE ", strMsg
