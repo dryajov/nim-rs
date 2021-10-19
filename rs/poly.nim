@@ -15,9 +15,11 @@ proc `+`*(p, q: seq[GFUint]): seq[GFUint] =
 
   return r
 
+proc `-`*(p, q: seq[GFUint]): seq[GFUint] =
+  `+`(p, q)
+
 proc `*`*(p, q: seq[GFUint]): seq[GFUint] =
   ## Multiply two polynomials, inside Galois Field
-  ## (but the procedure is generic).
   ##
   ## Optimized function by precomputation of log.
   ##
@@ -67,11 +69,11 @@ proc neg*(poly: seq[GFUint]): seq[GFUint] =
   ## so we return the polynomial as-is.
   ##
 
-  # TODO: we support arbitrary GF(x^p) fields
   poly
 
 proc `div`*(
-  dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
+  dividend,
+  divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
   ## Fast polynomial division by using Extended Synthetic Division and
   ## optimized for GF(2^p) computations - doesn't work with standard
   ## polynomials outside of this galois field, see the Wikipedia article
@@ -88,11 +90,8 @@ proc `div`*(
   var
     res = dividend
 
-  # resize to hold both the result and remainder
-  res.setLen(dividend.len + divisor.high)
-  for i in 0..<dividend.len:
-    let coef = res[i]
-    if coef == 0.GFUint:
+  for i in 0..res.len - divisor.len:
+    if res[i] == 0.GFUint:
       continue
 
     # skip the first coeficient of the divisor -
@@ -101,11 +100,11 @@ proc `div`*(
       if divisor[j] == 0.GFUint: # log(0) is undefined
         continue
 
-      res[i + j] = res[i + j] xor (divisor[j] * coef)
+      res[i + j] = res[i + j] xor (divisor[j] * res[i])
 
   return (
-    res[0..dividend.high],
-    res[dividend.len..res.high]) # return quotient, remainder.
+    res[0..res.len - divisor.len],
+    res[res.len - divisor.high..res.high]) # return quotient, remainder.
 
 proc `/`*(dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
   dividend div divisor
@@ -115,7 +114,7 @@ proc eval*(poly: seq[GFUint], x: GFUint | int): GFUint =
   ## This is based on Horner's scheme for maximum efficiency.
   ##
   var y = poly[0]
-  for i in 1..poly.high:
+  for i in 1..<poly.len:
     y = ((y * x.GFUint) xor poly[i])
 
   return y
