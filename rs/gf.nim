@@ -5,12 +5,13 @@
 import std/[sequtils, math, typetraits]
 
 const
-  Char* {.intdefine.} = 2'u
-  Exp* {.intdefine.} = 8'u
+  Char* = 2'u               # assume GF(2)
+  Exp* {.intdefine.} = 8'u  # can be redifined in powers of two -2,  4, 8, 16, 32
+                            # keep in mind that going above 32 is not very practical
   Order* = (Char ^ Exp)
   Degree* = Order - 1'u
 
-proc multNoLUT*(
+proc mulNoLUT*(
   x, y, prim: SomeUnsignedInt,
   fieldSize = Order,
   carryless = true): SomeUnsignedInt =
@@ -47,7 +48,6 @@ proc multNoLUT*(
   r
 
 proc rwhPrimes1(n: int): seq[uint] =
-  # http://stackoverflow.com/questions/2068372/fastest-way-to-list-all-primes-below-n-in-python/3035188#3035188
   ## Returns  a list of primes < n
   ##
 
@@ -56,7 +56,8 @@ proc rwhPrimes1(n: int): seq[uint] =
     size = ceil(n / 2).int
     primeRange = floor((float(n).pow 0.5) + 1).int
 
-  var sieve = newSeqWith(size - 1, true)
+  var
+    sieve = newSeqWith(size - 1, true)
   for i in countup(3, primeRange - 1, 2):
     if sieve[floor(i/2).int]:
       for j in countup(floor((i*i)/2).int, sieve.high, i):
@@ -67,7 +68,7 @@ proc rwhPrimes1(n: int): seq[uint] =
      if sieve[i]:
        result.add((2 * i + 1).uint)
 
-proc findPrimePolys(
+proc primePolys*(
   generator = Char,
   cExp = Exp,
   fastPrimes = true,
@@ -76,7 +77,6 @@ proc findPrimePolys(
   ## this also represent the maximum possible value
   ## in this field
   ##
-
 
   let
     DegreeNext = ((generator ^ (cExp + 1'u)) - 1'u)
@@ -108,7 +108,7 @@ proc findPrimePolys(
     for i in 0..<Degree:
       # Compute the next value in the field
       # (ie, the next power of alpha/generator)
-      x = multNoLUT(x, generator, prim, (Degree + 1'u))
+      x = mulNoLUT(x, generator, prim, (Degree + 1'u))
 
       # Rejection criterion: if the value overflowed
       # (above Degree) or is a duplicate of a
@@ -179,14 +179,14 @@ type
   GFUint* = distinct uint
 
 const
-  PrimePoly* {.intdefine.} = findPrimePolys(Char, Exp, true)[0]
+  PrimePoly* {.intdefine.} = primePolys(Char, Exp, true)[0]
   (GFExp*, GFLog*) = block:
     var
-      gfExp = newSeq[uint](Degree * 2) # Anti-log (exponential) table.
+      gfExp = newSeq[uint](Degree * 2) # Anti-log (exponentiation) table.
       gfLog = newSeq[uint](Order)      # Log table, log[0] is impossible and thus unused
 
     # For each possible value in the galois field 2^8, we will pre-compute
-    # the logarithm and anti-logarithm (exponential) of this value
+    # the logarithm and anti-logarithm (exponentiation) of this value
     #
     # To do that, we generate the Galois Field F(2^p) by building a list
     # starting with the element 0 followed by the (p-1) successive powers of
@@ -195,13 +195,11 @@ const
     for i in 0..<Degree:
       gfExp[i] = x.uint # compute anti-log for this value and store it in a table
       gfLog[x] = i.uint # compute log at the same time
-      x = multNoLUT(x, Char, PrimePoly, Order)
+      x = mulNoLUT(x, Char, PrimePoly, Order)
 
-    # Optimization: double the size of the anti-log table so
-    # that we don't need to mod 255 to stay inside the bounds
-    # (because we will mainly use this table for the multiplication
-    # of two GF numbers, no more).
-    gfExp[gfExp.len/2..gfExp.high] = gfExp[0..gfExp.high/2]
+    # double the size of the anti-log table so that we don't
+    # need to mod 255 to stay inside the bounds
+    gfExp[gfExp.len / 2..gfExp.high] = gfExp[0..gfExp.high / 2]
 
     (gfExp, gfLog)
 
