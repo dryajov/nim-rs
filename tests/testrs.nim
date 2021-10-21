@@ -20,20 +20,20 @@ suite "Test Reed-Solomon Coding":
     let msg = @[
       72, 101, 108, 108, 111, 32, 82, 101,
       101, 100, 45, 83, 111, 108, 111, 109,
-      111, 110, 33].mapIt(it.GFUint)
+      111, 110, 33].mapIt( it.GFUint )
 
     check encode(msg, 10) == @[
       72, 101, 108, 108, 111, 32, 82, 101,
       101, 100, 45, 83, 111, 108, 111, 109,
       111, 110, 33, 10, 54, 200, 1, 174,
-      73, 223, 252, 169, 147].mapIt(it.GFUint)
+      73, 223, 252, 169, 147].mapIt( it.GFUint )
 
   test "Decode":
     let msg = @[
       72, 101, 108, 108, 111, 32, 82, 101,
       101, 100, 45, 83, 111, 108, 111, 109,
       111, 110, 33, 10, 54, 200, 1, 174,
-      73, 223, 252, 169, 147].mapIt(it.GFUint)
+      73, 223, 252, 169, 147].mapIt( it.GFUint )
 
     let (correct, code) = correctMsg(msg, 10)
-    check string.fromBytes(correct.mapIt(it.byte)) == "Hello Reed-Solomon!"
+    check string.fromBytes(correct.mapIt( it.byte )) == "Hello Reed-Solomon!"
