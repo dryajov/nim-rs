@@ -2,7 +2,7 @@ import sequtils
 import pkg/unittest2
 import pkg/stew/byteutils
 
-import ../rs/rs
+import rs
 
 suite "Test Reed-Solomon Coding":
   test "Generator polynomials":

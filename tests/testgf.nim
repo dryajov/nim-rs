@@ -1,6 +1,6 @@
 import pkg/unittest2
 
-import ../rs/gf
+import gf
 
 # TODO: Add tests for fields other than GF(2^8) and generator 0x11D
 
