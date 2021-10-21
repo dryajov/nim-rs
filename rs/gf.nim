@@ -16,7 +16,8 @@ const
       gfLog = newSeq[uint](Order)      # Log table, log[0] is impossible and thus unused
 
     when PrimePoly > 0 and PrimePoly < Degree:
-      {.fatal: "-d:PrimePoly has to be larger or equal to the Degree of the field, set to `0` to source one automaticaly".}
+      {.fatal: "-d:PrimePoly has to be larger or equal to the Degree " +
+        "of the field, set to `0` to source one automaticaly".}
 
     let
       primePoly = if PrimePoly == 0:
