@@ -5,7 +5,7 @@ import ./gftype
 
 proc mulNoLUT*(
   x, y, prim: SomeUnsignedInt,
-  fieldSize = Order,
+  order = Order,
   carryless = true): SomeUnsignedInt =
   ## Galois Field integer multiplication using Russian
   ## Peasant Multiplication algorithm - faster than the
@@ -34,7 +34,7 @@ proc mulNoLUT*(
 
     y = y shr 1
     x = x shl 1
-    if prim > 0'u and bool(x and fieldSize):
+    if prim > 0'u and bool(x and order):
       # if x >= field size then apply modular
       # reduction using the primitive polynomial
       x = (x xor prim)

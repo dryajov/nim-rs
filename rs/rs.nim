@@ -11,7 +11,8 @@ proc generator*(
   nsym: int,
   alpha = 2.GFUint): seq[GFUint] =
   ## Generate an irreducible generator polynomial
-  ## (necessary to encode a message into Reed-Solomon)
+  ## using consecutive alphas (a_n) that are roots of the
+  ## polynomial and consequntly its factors (x-a)
   ##
 
   var g = @[1.GFUint]
@@ -43,8 +44,6 @@ proc encode*(
   var (_, remainder) = (msg & newSeq[GFUint](gen.len - 1)) / gen
 
   return msg & remainder # remainder is the RS code
-
-################### REED-SOLOMON DECODING ###################
 
 proc syndromes*(
   msg: seq[GFUint],
@@ -109,8 +108,8 @@ proc errorLocator*(
 
     for j in 1..<errLoc.len:
       # delta is also called discrepancy. Here we do a partial polynomial
-      # multiplication (ie, we compute the polynomial multiplication only
-      # for the term of degree K).
+      # multiplication - ie, we compute the polynomial multiplication only
+      # for the term of degree K.
 
       delta = delta + (errLoc[^(j+1)] * synd[K - j])
     # echo " K ", K, " delta ", delta, " err loc ", errLoc.reversed * synd # debugline
