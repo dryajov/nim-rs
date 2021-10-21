@@ -1,5 +1,7 @@
 {.push raises: [Defect].}
 
+{.deadCodeElim: on.}
+
 import std/[sequtils, math, typetraits]
 import ./utils
 import ./gftype

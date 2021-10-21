@@ -1,6 +1,6 @@
 {.push raises: [Defect].}
 
-{.experimental: "codeReordering".}
+{.deadCodeElim: on.}
 
 import std/[strutils, algorithm, sequtils]
 import ./poly

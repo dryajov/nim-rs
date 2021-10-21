@@ -1,3 +1,7 @@
+{.push raises: [Defect].}
+
+{.deadCodeElim: on.}
+
 import std/sequtils
 
 import ./gf
