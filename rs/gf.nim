@@ -6,11 +6,38 @@ import ./gftype
 
 export gftype
 
+proc initTables*(
+  primePoly: SomeUnsignedInt,
+  chr = Char,
+  order = Order,
+  degree = Degree): (seq[uint], seq[uint]) =
+  var
+    gfExp = newSeq[uint](degree * 2) # Anti-log (exponentiation) table.
+    gfLog = newSeq[uint](order)      # Log table, log[0] is impossible and thus unused
+
+  # For each possible value in the galois field 2^8, we will pre-compute
+  # the logarithm and anti-logarithm (exponentiation) of this value
+  #
+  # To do that, we generate the Galois Field F(2^p) by building a list
+  # starting with the element 0 followed by the (p-1) successive powers of
+  # the generator a : 1, a, a^1, a^2, ..., a^(p-1).
+  var x = 1'u
+  for i in 0..<degree:
+    gfExp[i] = x.uint # compute anti-log for this value and store it in a table
+    gfLog[x] = i.uint # compute log at the same time
+    x = mulNoLUT(x, chr, primePoly, order)
+
+  # double the size of the anti-log table so that we don't
+  # need to mod 255 to stay inside the bounds
+  gfExp[gfExp.len / 2..gfExp.high] = gfExp[0..gfExp.high / 2]
+
+  (gfExp, gfLog)
+
 const
   PrimePoly* {.intdefine.} = primePolys(Char, Exp, true)[0]
   (GFExp*, GFLog*) = initTables(PrimePoly)
 
-GFUintOp GFUint
+GFUintOp GFUint, bitsToUint(Exp)
 
 proc `[]`*[T](a: seq[T], i: GFUint): T =
   a[i.int]

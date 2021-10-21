@@ -8,32 +8,34 @@ proc mulNoLUT*(
   fieldSize = Order,
   carryless = true): SomeUnsignedInt =
   ## Galois Field integer multiplication using Russian
-  ## Peasant Multiplication algorithm (faster than the
-  ## standard multiplication + modular reduction). If
-  ## prim is 0 and carryless=False, then the function
-  ## produces the result for a standard integers multiplication
-  ## (no carry-less arithmetics nor modular reduction).
+  ## Peasant Multiplication algorithm - faster than the
+  ## standard multiplication + modular reduction.
+  ##
+  ## If `prim` is 0 and `carryless` = false, then the function
+  ## produces the result for a standard integers multiplication -
+  ## no carry-less arithmetics nor modular reduction.
   ##
 
   var
     r = 0'u
-    y = y
-    x = x
+    # use the smallest term as the leading since
+    # it reduces the number of steps
+    (y, x) = if y > x: (x, y) else: (y, x)
 
   while y > 0: # while y is above 0
     if bool(y and 1):
       # y is odd, then add the corresponding x to r
       #
       # Note: that since we're in GF(2), the addition
-      # is in fact an XOR (very important because in GF(2)
+      # is in fact an XOR - very important because in GF(2)
       # the multiplication and additions are carry-less,
-      # thus it changes the result!).
+      # thus it changes the result!
       r = if carryless: r xor x else: r + x
 
     y = y shr 1
     x = x shl 1
     if prim > 0'u and bool(x and fieldSize):
-      # GF modulo: if x >= field size then apply modular
+      # if x >= field size then apply modular
       # reduction using the primitive polynomial
       x = (x xor prim)
 
@@ -126,26 +128,3 @@ proc primePolys*(
 
   # Return the list of all prime polynomials
   return correctPrimes
-
-proc initTables*(primePoly: SomeUnsignedInt): (seq[uint], seq[uint]) =
-  var
-    gfExp = newSeq[uint](Degree * 2) # Anti-log (exponentiation) table.
-    gfLog = newSeq[uint](Order)      # Log table, log[0] is impossible and thus unused
-
-  # For each possible value in the galois field 2^8, we will pre-compute
-  # the logarithm and anti-logarithm (exponentiation) of this value
-  #
-  # To do that, we generate the Galois Field F(2^p) by building a list
-  # starting with the element 0 followed by the (p-1) successive powers of
-  # the generator a : 1, a, a^1, a^2, ..., a^(p-1).
-  var x = 1'u
-  for i in 0..<Degree:
-    gfExp[i] = x.uint # compute anti-log for this value and store it in a table
-    gfLog[x] = i.uint # compute log at the same time
-    x = mulNoLUT(x, Char, primePoly, Order)
-
-  # double the size of the anti-log table so that we don't
-  # need to mod 255 to stay inside the bounds
-  gfExp[gfExp.len / 2..gfExp.high] = gfExp[0..gfExp.high / 2]
-
-  (gfExp, gfLog)
