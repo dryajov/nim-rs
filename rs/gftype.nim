@@ -12,10 +12,10 @@ const
   Degree* = Order - 1'u
 
 template bitsToUint*(bits: untyped): untyped =
-  when bits == 8: uint8
-  elif bits == 16: uint16
-  elif bits == 32: uint32
-  else: {.fatal: "bits have to be 8, 16 or 32!".}
+  when bits >= 2 and bits <= 8: uint8
+  elif bits > 8 and bits <= 16: uint16
+  elif bits > 16 and bits <= 32: uint32
+  elif bits > 32 and bits <= 64: uint64
 
 template GFUintOp*(typ, borowing: type) {.dirty.} =
   proc `+`*(x: typ, y: borowing): typ {.borrow, noSideEffect.}
