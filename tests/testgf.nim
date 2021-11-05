@@ -8,36 +8,36 @@ suite "GF Arithmetic":
 
   test "Addition":
     check:
-      50.GFUint + 50.GFUint == 0.GFUint
-      150.GFUint + 200.GFUint == 94.GFUint
-      5.GFUint + 233.GFUint == 236.GFUint
+      50.GFSymbol + 50.GFSymbol == 0.GFSymbol
+      150.GFSymbol + 200.GFSymbol == 94.GFSymbol
+      5.GFSymbol + 233.GFSymbol == 236.GFSymbol
 
   test "Multiplication":
     check:
-      50.GFUint * 50.GFUint == 109.GFUint
-      150.GFUint * 200.GFUint == 118.GFUint
-      5.GFUint * 233.GFUint == 106.GFUint
+      50.GFSymbol * 50.GFSymbol == 109.GFSymbol
+      150.GFSymbol * 200.GFSymbol == 118.GFSymbol
+      5.GFSymbol * 233.GFSymbol == 106.GFSymbol
 
   test "Substraction":
     check:
-      50.GFUint - 50.GFUint == 0.GFUint
-      150.GFUint - 200.GFUint == 94.GFUint
-      5.GFUint - 233.GFUint == 236.GFUint
+      50.GFSymbol - 50.GFSymbol == 0.GFSymbol
+      150.GFSymbol - 200.GFSymbol == 94.GFSymbol
+      5.GFSymbol - 233.GFSymbol == 236.GFSymbol
 
   test "Divission":
     check:
-      50.GFUint / 50.GFUint == 1.GFUint
-      150.GFUint / 200.GFUint == 22.GFUint
-      5.GFUint / 233.GFUint == 185.GFUint
+      50.GFSymbol / 50.GFSymbol == 1.GFSymbol
+      150.GFSymbol / 200.GFSymbol == 22.GFSymbol
+      5.GFSymbol / 233.GFSymbol == 185.GFSymbol
 
   test "Exponentiation":
     check:
-      50.GFUint ^ 50 == 116.GFUint
-      150.GFUint ^ 200 == 193.GFUint
-      5.GFUint ^ 233 == 255.GFUint
+      50.GFSymbol ^ 50 == 116.GFSymbol
+      150.GFSymbol ^ 200 == 193.GFSymbol
+      5.GFSymbol ^ 233 == 255.GFSymbol
 
   test "Inverse":
     check:
-      GFUint(50).inverse == 111.GFUint
-      GFUint(150).inverse == 15.GFUint
-      GFUint(5).inverse == 167.GFUint
+      GFSymbol(50).inverse == 111.GFSymbol
+      GFSymbol(150).inverse == 15.GFSymbol
+      GFSymbol(5).inverse == 167.GFSymbol

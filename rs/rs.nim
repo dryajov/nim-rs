@@ -9,23 +9,23 @@ export poly
 
 proc generator*(
   nsym: int,
-  alpha = 2.GFUint): seq[GFUint] =
+  alpha = 2.GFSymbol): seq[GFSymbol] =
   ## Generate an irreducible generator polynomial
   ## using consecutive alphas (a_n) that are roots of the
   ## polynomial and consequntly its factors (x-a)
   ##
 
-  var g = @[1.GFUint]
+  var g = @[1.GFSymbol]
   for i in 0..<nsym:
-    g = g * @[1.GFUint, alpha ^ i]
+    g = g * @[1.GFSymbol, alpha ^ i]
 
   return g
 
 proc encode*(
-  msg: seq[GFUint],
+  msg: openArray[GFSymbol],
   nsym: int,
-  alpha = 2.GFUint,
-  gen: seq[GFUint] = @[]): seq[GFUint] {.raises: [ValueError, Defect].} =
+  alpha = 2.GFSymbol,
+  gen: seq[GFSymbol] = @[]): seq[GFSymbol] {.raises: [ValueError, Defect].} =
   ## Reed-Solomon encoding
   ##
 
@@ -41,14 +41,14 @@ proc encode*(
       gen
 
   # make a new seq of size msg.len + gen.len
-  var (_, remainder) = (msg & newSeq[GFUint](gen.len - 1)) / gen
+  var (_, remainder) = (@msg & newSeq[GFSymbol](gen.len - 1)) / gen
 
-  return msg & remainder # remainder is the RS code
+  return @msg & remainder # remainder is the RS code
 
 proc syndromes*(
-  msg: seq[GFUint],
+  msg: openArray[GFSymbol],
   nsym: int,
-  alpha = 2.GFUint): seq[GFUint] =
+  alpha = 2.GFSymbol): seq[GFSymbol] =
   ## Given the received codeword msg and the number of
   ## error correcting symbols (nsym), computes the syndromes
   ## polynomial.
@@ -57,18 +57,18 @@ proc syndromes*(
   ## Transform (Chien search being the inverse).
   ##
 
-  var synd = newSeq[GFUint](nsym + 1)
+  var synd = newSeq[GFSymbol](nsym + 1)
   for i in 0..<nsym:
-    synd[i + 1] = msg.eval(alpha ^ i)
+    synd[i + 1] = @msg.eval(alpha ^ i)
     # echo synd
 
   return synd
 
 proc errorLocator*(
-  synd: seq[GFUint],
+  synd: openArray[GFSymbol],
   nsym: int,
-  eraseLoc: seq[GFUint] = @[],
-  eraseCount = 0): seq[GFUint] {.raises: [CatchableError, Defect].} =
+  eraseLoc: openArray[GFSymbol] = @[],
+  eraseCount = 0): seq[GFSymbol] {.raises: [CatchableError, Defect].} =
   ## Find error/errata locator and evaluator polynomials
   ## with Berlekamp-Massey algorithm
   ##
@@ -79,12 +79,12 @@ proc errorLocator*(
   # we init with its value, so that we include erasures
   # in the final locator polynomial
   var (errLoc, oldLoc) = if eraseLoc.len > 0:
-    (eraseLoc, eraseLoc)
+    (@eraseLoc, @eraseLoc)
   else:
     # This is the main variable we want to fill,
     # also called Sigma in other notations or more
     # formally the errors/errata locator polynomial.
-    (@[1.GFUint], @[1.GFUint])
+    (@[1.GFSymbol], @[1.GFSymbol])
 
   let
     syndShift = if synd.len > nsym: synd.len - nsym else: 0
@@ -115,7 +115,7 @@ proc errorLocator*(
     # echo " K ", K, " delta ", delta, " err loc ", errLoc.reversed * synd # debugline
 
     # Shift polynomials to compute the next degree
-    oldLoc = oldLoc & @[0.GFUint]
+    oldLoc = oldLoc & @[0.GFSymbol]
 
     # Iteratively estimate the errata locator and evaluator polynomials
     if delta != 0: # Update only if there's a discrepancy
@@ -140,8 +140,8 @@ proc errorLocator*(
   return errLoc
 
 proc errataLocator*(
-  pos: seq[int],
-  alpha = 2.GFUint): seq[GFUint] =
+  pos: openArray[int],
+  alpha = 2.GFSymbol): seq[GFSymbol] =
   ## Compute the erasures/errors/errata locator polynomial from the
   ## erasures/errors/errata positions - the positions must be relative
   ## to the x coefficient, eg: "hello worldxxxxxxxxx" is tampered to
@@ -155,18 +155,18 @@ proc errataLocator*(
 
   # just to init because we will multiply, so it must be 1 so that
   # the multiplication starts correctly without nulling any term
-  var loc = @[1.GFUint]
+  var loc = @[1.GFSymbol]
   # erasures_loc = product(1 - x*alpha**i) for i in erasures_pos and where
   # alpha is the alpha chosen to evaluate polynomials.
   for i in pos:
-    loc = loc * (@[1.GFUint] + @[alpha ^ i, 0.GFUint])
+    loc = loc * (@[1.GFSymbol] + @[alpha ^ i, 0.GFSymbol])
 
   return loc
 
 proc errorEvaluator*(
-  synd: seq[GFUint],
-  errLoc: seq[GFUint],
-  nsym: int): seq[GFUint] =
+  synd: openArray[GFSymbol],
+  errLoc: openArray[GFSymbol],
+  nsym: int): seq[GFSymbol] =
   ## Compute the error or erasures if you supply
   ## sigma = erasures locator polynomial, or errata
   ## evaluator polynomial Omega from the syndrome
@@ -178,14 +178,14 @@ proc errorEvaluator*(
   # first multiply syndromes * errata_locator, then do a
   # polynomial division to truncate the polynomial to the
   # required length
-  let remainder = synd * errLoc
+  let remainder = @synd * @errLoc
   return remainder[(remainder.len - (nsym + 1))..remainder.high]
 
 proc correctErrata*(
-  msg: seq[GFUint],
-  synd: seq[GFUint],
-  errPos: seq[int], # errPos is a list of the positions of the errors/erasures/errata
-  alpha = 2.GFUint): seq[GFUint] {.raises: [CatchableError, Defect].} =
+  msg: openArray[GFSymbol],
+  synd: openArray[GFSymbol],
+  errPos: openArray[int], # errPos is a list of the positions of the errors/erasures/errata
+  alpha = 2.GFSymbol): seq[GFSymbol] {.raises: [CatchableError, Defect].} =
   ## Forney algorithm, computes the values (error magnitude)
   ## to correct the input message.
   ##
@@ -206,7 +206,7 @@ proc correctErrata*(
   # Second part of Chien search to get the error location polynomial X from
   # the error positions in errPos - the roots of the error locator polynomial,
   # ie, where it evaluates to 0
-  var X: seq[GFUint] # will store the position of the errors
+  var X: seq[GFSymbol] # will store the position of the errors
   for i in 0..<coefPos.len:
     let
       e = Degree - coefPos[i].uint
@@ -220,7 +220,7 @@ proc correctErrata*(
     # (substracted) to the message containing errors.
     # This is sometimes called the error magnitude
     # polynomial.
-    E = newSeq[GFUint](msg.len)
+    E = newSeq[GFSymbol](msg.len)
     Xlength = X.len
 
   for i, Xi in X:
@@ -234,13 +234,13 @@ proc correctErrata*(
     # ith error value is given by
     # error_evaluator(gf_inverse(Xi)) / error_locator_derivative(gf_inverse(Xi)).
     # See Blahut, Algebraic codes for data transmission, pp 196-197.
-    var errLocPrimeTmp: seq[GFUint]
+    var errLocPrimeTmp: seq[GFSymbol]
     for j in 0..<Xlength:
       if j != i:
-          errLocPrimeTmp.add( 1.GFUint - (Xi_inv * X[j]) )
+          errLocPrimeTmp.add( 1.GFSymbol - (Xi_inv * X[j]) )
 
     # compute the product, which is the denominator of the Forney algorithm (errata locator derivative)
-    var errLocPrime = 1.GFUint
+    var errLocPrime = 1.GFSymbol
     for coef in errLocPrimeTmp:
       errLocPrime = errLocPrime * coef
     # equivalent to: errLocPrime = functools.reduce(gf_mul, errLocPrimeTmp, 1)
@@ -276,12 +276,12 @@ proc correctErrata*(
   # (minus is replaced by XOR since it's equivalent in GF(2^p)).
   # So in fact here we substract from the received message the errors
   # magnitude, which logically corrects the value to what it should be.
-  return (msg - E)
+  return (@msg - E)
 
 proc findErrors(
-  errLoc: seq[GFUint],
+  errLoc: seq[GFSymbol],
   msgLen: int,
-  alpha = 2.GFUint): seq[int] {.raises: [CatchableError, Defect].} =
+  alpha = 2.GFSymbol): seq[int] {.raises: [CatchableError, Defect].} =
   ## Find the roots (ie, where evaluation = zero) of error polynomial
   ## by brute-force trial, this is a sort of Chien's search
   ## (but less efficient, Chien's search is a way to evaluate the
@@ -312,10 +312,10 @@ proc findErrors(
   return errPos
 
 proc forneySyndromes*(
-  synd: seq[GFUint],
+  synd: seq[GFSymbol],
   pos: seq[int],
   nmess: int,
-  alpha = 2.GFUint): seq[GFUint] =
+  alpha = 2.GFSymbol): seq[GFSymbol] =
   ## Compute Forney syndromes, which computes a modified
   ## syndromes to compute only errors (erasures are trimmed out).
   ## Do not confuse this with Forney algorithm, which allows
@@ -351,11 +351,11 @@ proc forneySyndromes*(
   return fsynd
 
 proc correctMsg*(
-  msg: seq[GFUint],
+  msg: seq[GFSymbol],
   nsym: int,
-  alpha = 2.GFUint,
+  alpha = 2.GFSymbol,
   erasePos: seq[int] = @[],
-  erasures = false): (seq[GFUint], seq[GFUint])
+  erasures = false): (seq[GFSymbol], seq[GFSymbol])
   {.raises: [ValueError, CatchableError, Defect].} =
   ## Reed-Solomon main decoding function
   ##
@@ -421,10 +421,10 @@ proc correctMsg*(
     msgOut[(msgOut.len-nsym)..<msgOut.len]) # also return the corrected ecc block so that the user can check()
 
 proc check(
-  msg: seq[GFUint],
+  msg: seq[GFSymbol],
   nsym: int,
   fcr = 0,
-  alpha = 2.GFUint): bool =
+  alpha = 2.GFSymbol): bool =
   ## Returns true if the message + ecc has no error of false
   ## otherwise (may not always catch a wrong decoding or a wrong
   ## message, particularly if there are too many errors

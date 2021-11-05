@@ -7,9 +7,9 @@ import std/sequtils
 import ./gf
 export gf
 
-proc `+`*(p, q: seq[GFUint]): seq[GFUint] =
+proc `+`*(p, q: seq[GFSymbol]): seq[GFSymbol] =
   var
-    r = newSeq[GFUint](max(p.len, q.len))
+    r = newSeq[GFSymbol](max(p.len, q.len))
 
   for i in 0..<p.len:
     r[i + r.len - p.len] = p[i]
@@ -19,10 +19,10 @@ proc `+`*(p, q: seq[GFUint]): seq[GFUint] =
 
   return r
 
-proc `-`*(p, q: seq[GFUint]): seq[GFUint] =
+proc `-`*(p, q: seq[GFSymbol]): seq[GFSymbol] =
   `+`(p, q)
 
-proc `*`*(p, q: seq[GFUint]): seq[GFUint] =
+proc `*`*(p, q: seq[GFSymbol]): seq[GFSymbol] =
   ## Multiply two polynomials, inside Galois Field
   ##
   ## Optimized function by precomputation of log.
@@ -30,25 +30,25 @@ proc `*`*(p, q: seq[GFUint]): seq[GFUint] =
 
   var
     # Pre-allocate the result array
-    r = newSeq[GFUint](p.len + q.len - 1)
+    r = newSeq[GFSymbol](p.len + q.len - 1)
 
     # Precompute the logarithm of p
-    lp = p.mapIt(GFLog[it])
+    lp = p.mapIt(GFLog[it.GFUint])
 
   # Compute the polynomial multiplication
   # Just like the outer product of two vectors,
   # we multiply each coefficients of p with all
   # coefficients of q
   for j in 0..<q.len:
-    if q[j].uint != 0: # log(0) is undefined, we need to check that
-      let lq = GFLog[q[j]] # Optimization: precache the logarithm of the current coefficient of q
+    if q[j] != 0: # log(0) is undefined, we need to check that
+      let lq = GFLog[q[j].GFUint] # Optimization: precache the logarithm of the current coefficient of q
       for i in 0..<p.len:
-        if p[i] != 0.GFUint: # log(0) is undefined, need to check that...
-          r[i + j] = (r[i + j] xor GFExp[lp[i] + lq].GFUint)
+        if p[i] != 0.GFSymbol: # log(0) is undefined, need to check that...
+          r[i + j] = (r[i + j] xor GFExp[(lp[i] + lq) mod Degree].GFSymbol)
 
   return r
 
-proc mulSimple*(p, q: seq[GFUint]): seq[GFUint] =
+proc mulSimple*(p, q: seq[GFSymbol]): seq[GFSymbol] =
   ## Multiply two polynomials in a Galois Field
   ##
   ## simple equivalent way of multiplying two polynomials
@@ -56,7 +56,7 @@ proc mulSimple*(p, q: seq[GFUint]): seq[GFUint] =
   ##
 
   # Pre-allocate the result array
-  var r = newSeq[GFUint](max(p.len, q.len))
+  var r = newSeq[GFSymbol](max(p.len, q.len))
   # Compute the polynomial multiplication
   for j in 0..<q.len:
     for i in 0..<p.len:
@@ -64,10 +64,10 @@ proc mulSimple*(p, q: seq[GFUint]): seq[GFUint] =
 
   return r
 
-proc scale*(p: seq[GFUint], x: int | GFUint): seq[GFUint] =
+proc scale*(p: seq[GFSymbol], x: int | GFSymbol): seq[GFSymbol] =
   p.mapIt(it * x)
 
-proc neg*(poly: seq[GFUint]): seq[GFUint] =
+proc neg*(poly: seq[GFSymbol]): seq[GFSymbol] =
   ## Returns the polynomial with all coefficients negated.
   ## In GF(2^p), negation does not change the coefficient,
   ## so we return the polynomial as-is.
@@ -77,7 +77,7 @@ proc neg*(poly: seq[GFUint]): seq[GFUint] =
 
 proc `div`*(
   dividend,
-  divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
+  divisor: seq[GFSymbol]): (seq[GFSymbol], seq[GFSymbol]) =
   ## Fast polynomial division by using Extended Synthetic Division and
   ## optimized for GF(2^p) computations - doesn't work with standard
   ## polynomials outside of this galois field, see the Wikipedia article
@@ -95,13 +95,13 @@ proc `div`*(
     res = dividend
 
   for i in 0..res.len - divisor.len:
-    if res[i] == 0.GFUint:
+    if res[i] == 0.GFSymbol:
       continue
 
     # skip the first coeficient of the divisor -
     # only used to normalize the divident coeficient
     for j in 1..<divisor.len:
-      if divisor[j] == 0.GFUint: # log(0) is undefined
+      if divisor[j] == 0.GFSymbol: # log(0) is undefined
         continue
 
       res[i + j] = res[i + j] xor (divisor[j] * res[i])
@@ -110,15 +110,15 @@ proc `div`*(
     res[0..res.len - divisor.len],
     res[res.len - divisor.high..res.high]) # return quotient, remainder.
 
-proc `/`*(dividend, divisor: seq[GFUint]): (seq[GFUint], seq[GFUint]) =
+proc `/`*(dividend, divisor: seq[GFSymbol]): (seq[GFSymbol], seq[GFSymbol]) =
   dividend div divisor
 
-proc eval*(poly: seq[GFUint], x: GFUint | int): GFUint =
+proc eval*(poly: seq[GFSymbol], x: GFSymbol | int): GFSymbol =
   ## Evaluates a polynomial in GF(n^p) given the value for x.
   ## This is based on Horner's scheme for maximum efficiency.
   ##
   var y = poly[0]
   for i in 1..<poly.len:
-    y = ((y * x.GFUint) xor poly[i])
+    y = ((y * x.GFSymbol) xor poly[i])
 
   return y

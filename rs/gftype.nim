@@ -58,4 +58,7 @@ template GFUintOp*(typ, borowing: type) {.dirty.} =
   proc `$`*(x: typ): string {.borrow, noSideEffect.}
 
 type
-  GFUint* = distinct bitsToUint(Exp)
+  GFSymbol* = distinct bitsToUint(Exp)  # used for GF arithmetic
+  GFUint* = bitsToUint(Exp * 2)       # use the smalles possible type to save space
+                                      # always use the next largest type to account
+                                      # for conversion overflows

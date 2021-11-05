@@ -10,30 +10,30 @@ suite "Test Reed-Solomon Coding":
       generator(10) == @[
         1, 216, 194, 159, 111,
         199, 94, 95, 113, 157,
-        193].mapIt( it.GFUint )
+        193].mapIt( it.GFSymbol )
 
       generator(8) == @[
         1, 255, 11, 81, 54, 239,
-        173, 200, 24].mapIt( it.GFUint )
+        173, 200, 24].mapIt( it.GFSymbol )
 
   test "Encode":
     let msg = @[
       72, 101, 108, 108, 111, 32, 82, 101,
       101, 100, 45, 83, 111, 108, 111, 109,
-      111, 110, 33].mapIt( it.GFUint )
+      111, 110, 33].mapIt( it.GFSymbol )
 
     check encode(msg, 10) == @[
       72, 101, 108, 108, 111, 32, 82, 101,
       101, 100, 45, 83, 111, 108, 111, 109,
       111, 110, 33, 10, 54, 200, 1, 174,
-      73, 223, 252, 169, 147].mapIt( it.GFUint )
+      73, 223, 252, 169, 147].mapIt( it.GFSymbol )
 
   test "Decode":
     let msg = @[
       72, 101, 108, 108, 111, 32, 82, 101,
       101, 100, 45, 83, 111, 108, 111, 109,
       111, 110, 33, 10, 54, 200, 1, 174,
-      73, 223, 252, 169, 147].mapIt( it.GFUint )
+      73, 223, 252, 169, 147].mapIt( it.GFSymbol )
 
     let (correct, code) = correctMsg(msg, 10)
     check string.fromBytes(correct.mapIt( it.byte )) == "Hello Reed-Solomon!"
