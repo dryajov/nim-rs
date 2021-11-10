@@ -2,7 +2,7 @@
 
 {.deadCodeElim: on.}
 
-import std/[math, sequtils]
+import std/[math, sequtils, tables]
 import ./gftype
 
 proc mulNoLUT*(
@@ -53,15 +53,15 @@ proc rwhPrimes1(n: int): seq[uint] =
     primeRange = floor((float(n).pow 0.5) + 1).int
 
   var
-    sieve = newSeqWith(size - 1, true)
+    sieve = initTable[int, bool]()
   for i in countup(3, primeRange - 1, 2):
-    if sieve[floor(i/2).int]:
-      for j in countup(floor((i*i)/2).int, sieve.high, i):
+    if sieve.getOrDefault(floor(i/2).int, true):
+      for j in countup(floor((i*i)/2).int, (size - 1), i):
         sieve[j] = false
 
   result = @[2'u]
   for i in 1..<(size - 1):
-     if sieve[i]:
+     if sieve.getOrDefault(floor(i/2).int, true):
        result.add((2 * i + 1).uint)
 
 proc primePolys*(
