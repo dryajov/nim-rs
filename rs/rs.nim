@@ -159,7 +159,8 @@ proc errataLocator*(
   # erasures_loc = product(1 - x*alpha**i) for i in erasures_pos and where
   # alpha is the alpha chosen to evaluate polynomials.
   for i in pos:
-    loc = loc * (@[1.GFSymbol] + @[alpha ^ i, 0.GFSymbol])
+    loc = loc * (@[1.GFSymbol] + @[alpha ^ i, 0.GFSymbol]) # TODO: not sure why we need to add the 0
+                                                           # coefficient and it works without it
 
   return loc
 
@@ -325,25 +326,23 @@ proc forneySyndromes*(
   let
     # prepare the coefficient degree positions
     # (instead of the erasures positions)
-    erasePosReversed = pos.mapIt(nmess - 1 - it)
+    reversedPos = pos.mapIt(nmess - 1 - it)
 
   var
     # make a copy and trim the first coefficient which
     # is always 0 by definition
     fsynd = synd[1..synd.high]
 
-  for i in 0..<pos.len:
-    let x = alpha ^ erasePosReversed[i]
+  for i in 0..<reversedPos.len:
+    let x = alpha ^ reversedPos[i]
     for j in 0..<fsynd.len - 1:
-      fsynd[j] = (fsynd[j] * x) xor fsynd[j + 1]
-
-    #fsynd.pop() # useless? it doesn't change the results of computations to leave it there
+      fsynd[j] = (fsynd[j] * x) + fsynd[j + 1]
 
   # Theoretical way of computing the modified Forney syndromes: fsynd = (eraseLoc * synd) % x^(n-k)
   # See Shao, H. M., Truong, T. K., Deutsch, L. J., & Reed, I. S. (1986, April). A single chip VLSI Reed-Solomon decoder.
   # In Acoustics, Speech, and Signal Processing, IEEE International Conference on ICASSP'86. (Vol. 11, pp. 2151-2154). IEEE.ISO 690
 
-  # eraseLoc = errataLocator(erasePosReversed, generator=generator) # computing the erasures locator polynomial
+  # eraseLoc = errataLocator(reversedPos, generator=generator) # computing the erasures locator polynomial
   # fsynd = gf_poly_mul(eraseLoc[::-1], synd[1:]) # then multiply with the syndrome to get the untrimmed forney syndrome
   # fsynd = fsynd[len(pos):] # then trim the first erasePos coefficients which are useless. Seems to be not necessary,
   # but this reduces the computation time later in BM (thus it's an optimization).

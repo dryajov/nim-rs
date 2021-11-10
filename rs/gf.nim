@@ -15,7 +15,7 @@ const
   (GFExp*, GFLog*) = block:
     var
       gfExp {.noInit.}: array[Degree, GFUint] # Anti-log (exponentiation) table.
-      gfLog {.noInit.}: array[Order, GFUint]      # Log table, log[0] is impossible and thus unused
+      gfLog {.noInit.}: array[Order, GFUint]  # Log table, log[0] is impossible and thus unused
 
     when PrimePoly > 0 and PrimePoly <= Degree:
       {.fatal: "-d:PrimePoly has to be larger or equal to the Degree of the field, set to `0` to source one automaticaly".}
@@ -26,7 +26,7 @@ const
       else:
         PrimePoly
 
-    # For each possible value in the galois field 2^8, we will pre-compute
+    # For each possible value in the galois field 2^p, we will pre-compute
     # the logarithm and anti-logarithm (exponentiation) of this value
     #
     # To do that, we generate the Galois Field F(2^p) by building a list

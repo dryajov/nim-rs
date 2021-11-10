@@ -5,8 +5,10 @@
 import std/math
 
 const
-  Exp* {.intdefine.} = 8'u  # can be redifined in powers of two -2,  4, 8, 16, 32
+  Exp* {.intdefine.} = 8'u  # can be redifined in powers of two - 2, ... 8, ... 16...
+                            # however, only 8 and 16 are tested by our harness
                             # keep in mind that going above 32 is not very practical
+                            # using LUT tables
   Char* = 2'u               # assume GF(2)
   Order* = (Char ^ Exp)
   Degree* = Order - 1'u
