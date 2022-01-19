@@ -2,7 +2,7 @@
 
 {.deadCodeElim: on.}
 
-import std/[sequtils, math, typetraits]
+import std/typetraits
 import ./utils
 import ./gftype
 
@@ -14,11 +14,11 @@ const
                                # suitable prime in the block bellow
   (GFExp*, GFLog*) = block:
     var
-      gfExp {.noInit.}: array[Degree, GFUint] # Anti-log (exponentiation) table.
-      gfLog {.noInit.}: array[Order, GFUint]  # Log table, log[0] is impossible and thus unused
+      gfExp {.noInit.}: array[Degree, uint] # Anti-log (exponentiation) table.
+      gfLog {.noInit.}: array[Order, uint]  # Log table, log[0] is impossible and thus unused
 
     when PrimePoly > 0 and PrimePoly <= Degree:
-      {.fatal: "-d:PrimePoly has to be larger or equal to the Degree of the field, set to `0` to source one automaticaly".}
+      {.fatal: "-d:PrimePoly has to be larger or equal to the Degree of the field, set to `0` to source one automatically".}
 
     const
       primePoly = if PrimePoly == 0:
@@ -34,8 +34,8 @@ const
     # the generator a: 1, a, a^1, a^2, ..., a^(p-1).
     var x = 1'u
     for i in 0..<Degree:
-      gfExp[i] = x.GFUint # compute anti-log for this value and store it in a table
-      gfLog[x] = i.GFUint # compute log at the same time
+      gfExp[i] = x.uint # compute anti-log for this value and store it in a table
+      gfLog[x] = i.uint # compute log at the same time
       x = mulNoLUT(x = x, y = Char, prim = primePoly, order = Order)
 
     # double the size of the anti-log table so that we don't
@@ -54,15 +54,15 @@ proc `+`*(x, y: GFSymbol): GFSymbol =
 proc `-`*(x, y: GFSymbol): GFSymbol =
   # in binary galois field, substraction
   # is just the same as addition (since we mod 2)
-  x xor y
+  x + y
 
 proc `*`*(x, y: GFSymbol): GFSymbol =
   if x == 0 or y == 0:
     return 0.GFSymbol
 
-  GFExp[((GFLog[x.GFUint] + GFLog[y.GFUint]) mod Degree)].GFSymbol
+  GFExp[((GFLog[x.uint] + GFLog[y.uint]) mod Degree)].GFSymbol
 
-proc `div`*(x, y: GFSymbol): GFSymbol =
+proc `div`*(x, y: GFSymbol): GFSymbol {.raises: [DivByZeroError].} =
   if y == 0:
     # TODO: use DivByZeroDefect once we drop 1.2.6
     raise newException(DivByZeroError, "Can't divide by 0!")
@@ -70,13 +70,13 @@ proc `div`*(x, y: GFSymbol): GFSymbol =
   if x == 0:
     return 0.GFSymbol
 
-  GFExp[((GFLog[x.GFUint] + Degree) - GFLog[y.GFUint]) mod Degree].GFSymbol
+  GFExp[((GFLog[x.uint] + Degree) - GFLog[y.uint]) mod Degree].GFSymbol
 
 proc `/`*(x, y: GFSymbol): GFSymbol =
   x div y
 
 proc `^`*(x: GFSymbol, power: int): GFSymbol =
-  GFExp[(GFLog[x.GFUint] * power.GFUint) mod Degree].GFSymbol
+  GFExp[(GFLog[x.uint] * power.uint) mod Degree].GFSymbol
 
 proc inverse*(x: GFSymbol): GFSymbol =
-  GFExp[(Degree - GFLog[x.GFUint]) mod Degree].GFSymbol
+  GFExp[(Degree - GFLog[x.uint]) mod Degree].GFSymbol

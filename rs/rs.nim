@@ -2,7 +2,7 @@
 
 {.deadCodeElim: on.}
 
-import std/[strutils, algorithm, sequtils]
+import std/[algorithm, sequtils]
 import ./poly
 
 export poly
@@ -12,7 +12,7 @@ proc generator*(
   alpha = 2.GFSymbol): seq[GFSymbol] =
   ## Generate an irreducible generator polynomial
   ## using consecutive alphas (a_n) that are roots of the
-  ## polynomial and consequntly its factors (x-a)
+  ## polynomial and consequently its factors (x-a)
   ##
 
   var g = @[1.GFSymbol]
@@ -22,17 +22,17 @@ proc generator*(
   return g
 
 proc encode*(
-  msg: openArray[GFSymbol],
+  msg: sink openArray[GFSymbol],
   nsym: int,
   alpha = 2.GFSymbol,
-  gen: seq[GFSymbol] = @[]): seq[GFSymbol] {.raises: [ValueError, Defect].} =
+  gen: seq[GFSymbol] = @[]): seq[GFSymbol] {.raises: [Defect, RSError].} =
   ## Reed-Solomon encoding
   ##
 
   if (msg.len + nsym).uint > Order:
     raise newException(
-      ValueError,
-      "Message is too long ($1 when max is $2)" % [$(msg.len + nsym), $Order])
+      RSError,
+      "Message is too long ( " & $(msg.len + nsym) & " when max is " & $Order & " )")
 
   let
     gen = if gen.len <= 0:
@@ -46,7 +46,7 @@ proc encode*(
   return @msg & remainder # remainder is the RS code
 
 proc syndromes*(
-  msg: openArray[GFSymbol],
+  msg: sink openArray[GFSymbol],
   nsym: int,
   alpha = 2.GFSymbol): seq[GFSymbol] =
   ## Given the received codeword msg and the number of
@@ -65,10 +65,10 @@ proc syndromes*(
   return synd
 
 proc errorLocator*(
-  synd: openArray[GFSymbol],
+  synd: sink openArray[GFSymbol],
   nsym: int,
   eraseLoc: openArray[GFSymbol] = @[],
-  eraseCount = 0): seq[GFSymbol] {.raises: [CatchableError, Defect].} =
+  eraseCount = 0): seq[GFSymbol] {.raises: [Defect, RSError].} =
   ## Find error/errata locator and evaluator polynomials
   ## with Berlekamp-Massey algorithm
   ##
@@ -135,12 +135,12 @@ proc errorLocator*(
 
   let errs = errLoc.len - 1
   if ((errs - eraseCount) * 2) + eraseCount > nsym:
-    raise newException(CatchableError, "Too many errors to correct") # too many errors to correct
+    raise newException(RSError, "Too many errors to correct") # too many errors to correct
 
   return errLoc
 
 proc errataLocator*(
-  pos: openArray[int],
+  pos: sink openArray[int],
   alpha = 2.GFSymbol): seq[GFSymbol] =
   ## Compute the erasures/errors/errata locator polynomial from the
   ## erasures/errors/errata positions - the positions must be relative
@@ -165,7 +165,7 @@ proc errataLocator*(
   return loc
 
 proc errorEvaluator*(
-  synd: openArray[GFSymbol],
+  synd: sink openArray[GFSymbol],
   errLoc: openArray[GFSymbol],
   nsym: int): seq[GFSymbol] =
   ## Compute the error or erasures if you supply
@@ -183,10 +183,9 @@ proc errorEvaluator*(
   return remainder[(remainder.len - (nsym + 1))..remainder.high]
 
 proc correctErrata*(
-  msg: openArray[GFSymbol],
-  synd: openArray[GFSymbol],
+  msg, synd: sink openArray[GFSymbol],
   errPos: openArray[int], # errPos is a list of the positions of the errors/erasures/errata
-  alpha = 2.GFSymbol): seq[GFSymbol] {.raises: [CatchableError, Defect].} =
+  alpha = 2.GFSymbol): seq[GFSymbol] {.raises: [Defect, RSError].} =
   ## Forney algorithm, computes the values (error magnitude)
   ## to correct the input message.
   ##
@@ -256,7 +255,7 @@ proc correctErrata*(
 
     # Check: errLocPrime (the divisor) should not be zero.
     if errLocPrime == 0:
-      raise newException(CatchableError, "Could not find error magnitude")
+      raise newException(RSError, "Could not find error magnitude")
 
     # Compute the magnitude
     let
@@ -280,9 +279,9 @@ proc correctErrata*(
   return (@msg - E)
 
 proc findErrors(
-  errLoc: seq[GFSymbol],
+  errLoc: sink seq[GFSymbol],
   msgLen: int,
-  alpha = 2.GFSymbol): seq[int] {.raises: [CatchableError, Defect].} =
+  alpha = 2.GFSymbol): seq[int] {.raises: [Defect, RSError].} =
   ## Find the roots (ie, where evaluation = zero) of error polynomial
   ## by brute-force trial, this is a sort of Chien's search
   ## (but less efficient, Chien's search is a way to evaluate the
@@ -307,14 +306,14 @@ proc findErrors(
   if errPos.len != errs:
     # couldn't find error locations
     raise newException(
-      CatchableError,
+      RSError,
       "Too many (or few) errors found by Chien Search for the errata locator polynomial!")
 
   return errPos
 
 proc forneySyndromes*(
-  synd: seq[GFSymbol],
-  pos: seq[int],
+  synd: sink openArray[GFSymbol],
+  pos: openArray[int],
   nmess: int,
   alpha = 2.GFSymbol): seq[GFSymbol] =
   ## Compute Forney syndromes, which computes a modified
@@ -349,27 +348,27 @@ proc forneySyndromes*(
 
   return fsynd
 
-proc correctMsg*(
-  msg: seq[GFSymbol],
+proc decode*(
+  msg: sink seq[GFSymbol],
   nsym: int,
   alpha = 2.GFSymbol,
-  erasePos: seq[int] = @[],
+  erasePos: openArray[int] = [],
   erasures = false): (seq[GFSymbol], seq[GFSymbol])
-  {.raises: [ValueError, CatchableError, Defect].} =
+  {.raises: [Defect, RSError].} =
   ## Reed-Solomon main decoding function
   ##
 
   if msg.len > Order.int:
     raise newException(
-      ValueError,
-      "Message is too long (%1 when max is %2)" % [$len(msg), $Order])
+      RSError,
+      "Message is too long (" & $len(msg) & " when max is " & $Order & ")")
 
   var
     msgOut = msg  # copy of message
 
   # check if there are too many erasures to correct (beyond the Singleton bound)
   if erasePos.len > nsym:
-    raise newException(CatchableError, "Too many erasures to correct")
+    raise newException(RSError, "Too many erasures to correct")
 
   # prepare the syndromes using only errors -
   # ie: errors = characters that were either replaced by null byte
@@ -397,7 +396,7 @@ proc correctMsg*(
 
     errPos = findErrors(errLoc.reversed(), msgOut.len, alpha)
     if errPos.len <= 0:
-      raise newException(CatchableError, "Could not locate error")
+      raise newException(RSError, "Could not locate error")
 
   # Find errors values and apply them to correct the message
   # compute errata evaluator and errata magnitude polynomials,
@@ -407,12 +406,12 @@ proc correctMsg*(
   # (because we will correct both errors and erasures, so we need the full syndrome)
   msgOut = msgOut.correctErrata(
     synd,
-    erasePos & errPos,
+    @erasePos & errPos,
     alpha)
 
   # check if the final message is fully repaired
   if max(syndromes(msgOut, nsym, alpha)) > 0:
-    raise newException(CatchableError, "Could not correct message")
+    raise newException(RSError, "Could not correct message")
 
   # return the successfully decoded message
   return (
@@ -420,7 +419,7 @@ proc correctMsg*(
     msgOut[(msgOut.len-nsym)..<msgOut.len]) # also return the corrected ecc block so that the user can check()
 
 proc check(
-  msg: seq[GFSymbol],
+  msg: sink openArray[GFSymbol],
   nsym: int,
   fcr = 0,
   alpha = 2.GFSymbol): bool =

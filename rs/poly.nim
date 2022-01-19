@@ -7,7 +7,9 @@ import std/sequtils
 import ./gf
 export gf
 
-proc `+`*(p, q: seq[GFSymbol]): seq[GFSymbol] =
+template addSubs(p, q: openArray[GFSymbol]): seq[GFSymbol] =
+  ## Perform addition/substraction which in GF(2^p) are the same
+  ##
   var
     r = newSeq[GFSymbol](max(p.len, q.len))
 
@@ -17,12 +19,15 @@ proc `+`*(p, q: seq[GFSymbol]): seq[GFSymbol] =
   for i in 0..<q.len:
     r[i + (r.len - q.len)] = r[i + (r.len - q.len)] + q[i]
 
-  return r
+  r
 
-proc `-`*(p, q: seq[GFSymbol]): seq[GFSymbol] =
-  `+`(p, q)
+template `+`*(p, q: sink openArray[GFSymbol]): seq[GFSymbol] =
+  move addSubs(p, q)
 
-proc `*`*(p, q: seq[GFSymbol]): seq[GFSymbol] =
+template `-`*(p, q: openArray[GFSymbol]): seq[GFSymbol] =
+  move addSubs(p, q)
+
+proc `*`*(p, q: sink openArray[GFSymbol]): seq[GFSymbol] =
   ## Multiply two polynomials, inside Galois Field
   ##
   ## Optimized function by precomputation of log.
@@ -33,7 +38,7 @@ proc `*`*(p, q: seq[GFSymbol]): seq[GFSymbol] =
     r = newSeq[GFSymbol](p.len + q.len - 1)
 
     # Precompute the logarithm of p
-    lp = p.mapIt(GFLog[it.GFUint])
+    lp = p.mapIt(GFLog[it.uint])
 
   # Compute the polynomial multiplication
   # Just like the outer product of two vectors,
@@ -41,14 +46,14 @@ proc `*`*(p, q: seq[GFSymbol]): seq[GFSymbol] =
   # coefficients of q
   for j in 0..<q.len:
     if q[j] != 0: # log(0) is undefined, we need to check that
-      let lq = GFLog[q[j].GFUint] # Optimization: precache the logarithm of the current coefficient of q
+      let lq = GFLog[q[j].uint] # Optimization: precache the logarithm of the current coefficient of q
       for i in 0..<p.len:
         if p[i] != 0.GFSymbol: # log(0) is undefined, need to check that...
           r[i + j] = (r[i + j] xor GFExp[(lp[i] + lq) mod Degree].GFSymbol)
 
-  return r
+  return move r
 
-proc mulSimple*(p, q: seq[GFSymbol]): seq[GFSymbol] =
+proc mulSimple*(p, q: sink openArray[GFSymbol]): seq[GFSymbol] =
   ## Multiply two polynomials in a Galois Field
   ##
   ## simple equivalent way of multiplying two polynomials
@@ -62,12 +67,12 @@ proc mulSimple*(p, q: seq[GFSymbol]): seq[GFSymbol] =
     for i in 0..<p.len:
       r[i + j] = r[i + j] xor p[i] * q[j]
 
-  return r
+  return move r
 
-proc scale*(p: seq[GFSymbol], x: int | GFSymbol): seq[GFSymbol] =
+template scale*(p: sink seq[GFSymbol], x: int | GFSymbol): seq[GFSymbol] =
   p.mapIt(it * x)
 
-proc neg*(poly: seq[GFSymbol]): seq[GFSymbol] =
+template neg*[T](poly: openArray[GFSymbol]): openArray[GFSymbol] =
   ## Returns the polynomial with all coefficients negated.
   ## In GF(2^p), negation does not change the coefficient,
   ## so we return the polynomial as-is.
@@ -77,7 +82,7 @@ proc neg*(poly: seq[GFSymbol]): seq[GFSymbol] =
 
 proc `div`*(
   dividend,
-  divisor: seq[GFSymbol]): (seq[GFSymbol], seq[GFSymbol]) =
+  divisor: sink openArray[GFSymbol]): (seq[GFSymbol], seq[GFSymbol]) =
   ## Fast polynomial division by using Extended Synthetic Division and
   ## optimized for GF(2^p) computations - doesn't work with standard
   ## polynomials outside of this galois field, see the Wikipedia article
@@ -92,14 +97,14 @@ proc `div`*(
   # eg: 1 + 2x + 5x^2 = [5, 2, 1], NOT [1, 2, 5]
 
   var
-    res = dividend
+    res = @dividend
 
   for i in 0..res.len - divisor.len:
     if res[i] == 0.GFSymbol:
       continue
 
-    # skip the first coeficient of the divisor -
-    # only used to normalize the divident coeficient
+    # skip the first coefficient of the divisor -
+    # only used to normalize the dividend coefficient
     for j in 1..<divisor.len:
       if divisor[j] == 0.GFSymbol: # log(0) is undefined
         continue
@@ -110,10 +115,12 @@ proc `div`*(
     res[0..res.len - divisor.len],
     res[res.len - divisor.high..res.high]) # return quotient, remainder.
 
-proc `/`*(dividend, divisor: seq[GFSymbol]): (seq[GFSymbol], seq[GFSymbol]) =
+template `/`*(
+  dividend,
+  divisor: sink openArray[GFSymbol]): (seq[GFSymbol], seq[GFSymbol]) =
   dividend div divisor
 
-proc eval*(poly: seq[GFSymbol], x: GFSymbol | int): GFSymbol =
+proc eval*(poly: sink openArray[GFSymbol], x: GFSymbol | int): GFSymbol =
   ## Evaluates a polynomial in GF(n^p) given the value for x.
   ## This is based on Horner's scheme for maximum efficiency.
   ##
@@ -121,4 +128,4 @@ proc eval*(poly: seq[GFSymbol], x: GFSymbol | int): GFSymbol =
   for i in 1..<poly.len:
     y = ((y * x.GFSymbol) xor poly[i])
 
-  return y
+  return move y

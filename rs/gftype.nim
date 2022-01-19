@@ -5,7 +5,7 @@
 import std/math
 
 const
-  Exp* {.intdefine.} = 8'u  # can be redifined in powers of two - 2, ... 8, ... 16...
+  Exp* {.intdefine.} = 8'u  # can be redefined in powers of two - 2, ... 8, ... 16...
                             # however, only 8 and 16 are tested by our harness
                             # keep in mind that going above 32 is not very practical
                             # using LUT tables
@@ -61,6 +61,8 @@ template GFUintOp*(typ, borowing: type) {.dirty.} =
 
 type
   GFSymbol* = distinct bitsToUint(Exp)  # used for GF arithmetic
-  GFUint* = bitsToUint(Exp * 2)       # use the smalles possible type to save space
-                                      # always use the next largest type to account
-                                      # for conversion overflows
+
+  RSError* = object of CatchableError   # Base error type
+
+# TODO: maybe there is a way?
+# proc `=copy`(dest: var GFSymbol; source: GFSymbol) {.error.} # disable copying
