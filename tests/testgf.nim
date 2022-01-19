@@ -1,4 +1,4 @@
-import pkg/unittest2
+import std/unittest
 
 import gf
 

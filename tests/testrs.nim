@@ -1,7 +1,7 @@
 import sequtils
-import pkg/unittest2
-import pkg/stew/byteutils
+import std/unittest
 
+import ./helpers
 import rs
 
 suite "Test Reed-Solomon Coding":
@@ -35,5 +35,5 @@ suite "Test Reed-Solomon Coding":
       111, 110, 33, 10, 54, 200, 1, 174,
       73, 223, 252, 169, 147].mapIt( it.GFSymbol )
 
-    let (correct, code) = correctMsg(msg, 10)
+    let (correct, _) = decode(msg, 10)
     check string.fromBytes(correct.mapIt( it.byte )) == "Hello Reed-Solomon!"
