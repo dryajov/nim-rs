@@ -70,13 +70,13 @@ proc `div`*(x, y: GFSymbol): GFSymbol {.raises: [DivByZeroError].} =
   if x == 0:
     return 0.GFSymbol
 
-  GFExp[((GFLog[x.uint] + Degree) - GFLog[y.uint]) mod Degree].GFSymbol
+  GFExp[((GFLog[x.int] + Degree) - GFLog[y.int]) mod Degree].GFSymbol
 
 proc `/`*(x, y: GFSymbol): GFSymbol =
   x div y
 
 proc `^`*(x: GFSymbol, power: int): GFSymbol =
-  GFExp[(GFLog[x.uint] * power.uint) mod Degree].GFSymbol
+  GFExp[(GFLog[x.int] * power.uint) mod Degree].GFSymbol
 
 proc inverse*(x: GFSymbol): GFSymbol =
-  GFExp[(Degree - GFLog[x.uint]) mod Degree].GFSymbol
+  GFExp[(Degree - GFLog[x.int]) mod Degree].GFSymbol
