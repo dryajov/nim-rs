@@ -5,8 +5,7 @@
 import std/math
 
 const
-  Exp* {.intdefine.} = 8'u  # can be redefined in powers of two - 2, ... 8, ... 16...
-                            # however, only 8 and 16 are tested by our harness
+  Exp* {.intdefine.} = 8'u  # can be redefined in powers of two - 8, ... 16...
                             # keep in mind that going above 32 is not very practical
                             # using LUT tables
   Char* = 2'u               # assume GF(2)

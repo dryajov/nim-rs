@@ -243,7 +243,6 @@ proc correctErrata*(
     var errLocPrime = 1.GFSymbol
     for coef in errLocPrimeTmp:
       errLocPrime = errLocPrime * coef
-    # equivalent to: errLocPrime = functools.reduce(gf_mul, errLocPrimeTmp, 1)
 
     # Compute y (evaluation of the errata evaluator polynomial)
     # This is a more faithful translation of the theoretical
