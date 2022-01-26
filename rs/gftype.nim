@@ -59,7 +59,8 @@ template GFUintOp*(typ, borowing: type) {.dirty.} =
   proc `$`*(x: typ): string {.borrow, noSideEffect.}
 
 type
-  GFSymbol* = distinct bitsToUint(Exp)  # used for GF arithmetic
+  GFUint* = distinct bitsToUint(Exp)  # used for GF arithmetic
+  GFSymbol* = range[0.GFUint..Degree.GFUint]
 
   RSError* = object of CatchableError   # Base error type
 

@@ -6,7 +6,7 @@ suite "GF Arithmetic in GF " & $Exp:
 
   test "Addition":
     check:
-      500000.GFSymbol + 500000.GFSymbol == 0.GFSymbol
+      50000.GFSymbol + 50000.GFSymbol == 0.GFSymbol
       150000.GFSymbol + 200000.GFSymbol == 83120.GFSymbol
       5.GFSymbol + 233000.GFSymbol == 233005.GFSymbol
 

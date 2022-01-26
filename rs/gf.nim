@@ -43,7 +43,7 @@ const
 
     (gfExp, gfLog)
 
-GFUintOp GFSymbol, bitsToUint(Exp)
+GFUintOp GFUint, bitsToUint(Exp)
 
 proc `[]`*[T](a: seq[T], i: GFSymbol): T =
   a[i.int]
