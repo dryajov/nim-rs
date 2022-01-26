@@ -62,7 +62,7 @@ type
   GFUint* = distinct bitsToUint(Exp)  # used for GF arithmetic
   GFSymbol* = range[0.GFUint..Degree.GFUint]
 
-  RSError* = object of CatchableError   # Base error type
+  RSError* = object of CatchableError # Base error type
 
 # TODO: maybe there is a way?
 # proc `=copy`(dest: var GFSymbol; source: GFSymbol) {.error.} # disable copying
