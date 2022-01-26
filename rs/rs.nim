@@ -25,7 +25,8 @@ proc encode*(
   msg: sink openArray[GFSymbol],
   nsym: int,
   alpha = 2.GFSymbol,
-  gen: seq[GFSymbol] = @[]): seq[GFSymbol] {.raises: [Defect, RSError].} =
+  gen: seq[GFSymbol] = @[]):
+  (seq[GFSymbol], seq[GFSymbol]) {.raises: [Defect, RSError].} =
   ## Reed-Solomon encoding
   ##
 
@@ -43,7 +44,7 @@ proc encode*(
   # make a new seq of size msg.len + gen.len
   var (_, remainder) = (@msg & newSeq[GFSymbol](gen.len - 1)) / gen
 
-  return @msg & remainder # remainder is the RS code
+  return (@msg, remainder) # remainder is the RS code
 
 proc syndromes*(
   msg: sink openArray[GFSymbol],
