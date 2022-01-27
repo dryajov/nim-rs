@@ -4,14 +4,6 @@
 
 import std/math
 
-const
-  Exp* {.intdefine.} = 8'u  # can be redefined in powers of two - 8, ... 16...
-                            # keep in mind that going above 32 is not very practical
-                            # using LUT tables
-  Char* = 2'u               # assume GF(2)
-  Order* = (Char ^ Exp)
-  Degree* = Order - 1'u
-
 template bitsToUint*(bits: untyped): untyped =
   when bits >= 2 and bits <= 8: uint8
   elif bits > 8 and bits <= 16: uint16
@@ -57,6 +49,14 @@ template GFUintOp*(typ, borowing: type) {.dirty.} =
 
   # Nim integration
   proc `$`*(x: typ): string {.borrow, noSideEffect.}
+
+const
+  Exp* {.intdefine.} = 8'u  # can be redefined in powers of two - 8, ... 16...
+                            # keep in mind that going above 32 is not very practical
+                            # using LUT tables
+  Char* = 2'u               # assume GF(2)
+  Order* = (Char ^ Exp)
+  Degree* = Order - 1'u
 
 type
   GFUint* = distinct bitsToUint(Exp)  # used for GF arithmetic
