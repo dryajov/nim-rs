@@ -22,7 +22,7 @@ proc generator*(
   return g
 
 proc encode*(
-  msg: sink openArray[GFSymbol],
+  msg: openArray[GFSymbol],
   nsym: int,
   alpha = 2.GFSymbol,
   gen: seq[GFSymbol] = @[]):
@@ -47,7 +47,7 @@ proc encode*(
   return (@msg, remainder) # remainder is the RS code
 
 proc syndromes*(
-  msg: sink openArray[GFSymbol],
+  msg: openArray[GFSymbol],
   nsym: int,
   alpha = 2.GFSymbol): seq[GFSymbol] =
   ## Given the received codeword msg and the number of
@@ -66,7 +66,7 @@ proc syndromes*(
   return synd
 
 proc errorLocator*(
-  synd: sink openArray[GFSymbol],
+  synd: openArray[GFSymbol],
   nsym: int,
   eraseLoc: openArray[GFSymbol] = @[],
   eraseCount = 0): seq[GFSymbol] {.raises: [Defect, RSError].} =
@@ -141,7 +141,7 @@ proc errorLocator*(
   return errLoc
 
 proc errataLocator*(
-  pos: sink openArray[int],
+  pos: openArray[int],
   alpha = 2.GFSymbol): seq[GFSymbol] =
   ## Compute the erasures/errors/errata locator polynomial from the
   ## erasures/errors/errata positions - the positions must be relative
@@ -166,7 +166,7 @@ proc errataLocator*(
   return loc
 
 proc errorEvaluator*(
-  synd: sink openArray[GFSymbol],
+  synd: openArray[GFSymbol],
   errLoc: openArray[GFSymbol],
   nsym: int): seq[GFSymbol] =
   ## Compute the error or erasures if you supply
@@ -184,7 +184,7 @@ proc errorEvaluator*(
   return remainder[(remainder.len - (nsym + 1))..remainder.high]
 
 proc correctErrata*(
-  msg, synd: sink openArray[GFSymbol],
+  msg, synd: openArray[GFSymbol],
   errPos: openArray[int], # errPos is a list of the positions of the errors/erasures/errata
   alpha = 2.GFSymbol): seq[GFSymbol] {.raises: [Defect, RSError].} =
   ## Forney algorithm, computes the values (error magnitude)
@@ -279,7 +279,7 @@ proc correctErrata*(
   return (@msg - E)
 
 proc findErrors(
-  errLoc: sink seq[GFSymbol],
+  errLoc: seq[GFSymbol],
   msgLen: int,
   alpha = 2.GFSymbol): seq[int] {.raises: [Defect, RSError].} =
   ## Find the roots (ie, where evaluation = zero) of error polynomial
@@ -312,7 +312,7 @@ proc findErrors(
   return errPos
 
 proc forneySyndromes*(
-  synd: sink openArray[GFSymbol],
+  synd: openArray[GFSymbol],
   pos: openArray[int],
   nmess: int,
   alpha = 2.GFSymbol): seq[GFSymbol] =
@@ -349,7 +349,7 @@ proc forneySyndromes*(
   return fsynd
 
 proc decode*(
-  msg: sink seq[GFSymbol],
+  msg: seq[GFSymbol],
   nsym: int,
   alpha = 2.GFSymbol,
   erasePos: openArray[int] = [],
@@ -419,7 +419,7 @@ proc decode*(
     msgOut[(msgOut.len-nsym)..<msgOut.len]) # also return the corrected ecc block so that the user can check()
 
 proc check(
-  msg: sink openArray[GFSymbol],
+  msg: openArray[GFSymbol],
   nsym: int,
   fcr = 0,
   alpha = 2.GFSymbol): bool =
