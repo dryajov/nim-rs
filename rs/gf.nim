@@ -45,24 +45,24 @@ const
 
 GFUintOp GFUint, bitsToUint(Exp)
 
-proc `[]`*[T](a: seq[T], i: GFSymbol): T =
+proc `[]`*[T](a: seq[T], i: GFSymbol): T {.inline.} =
   a[i.int]
 
-proc `+`*(x, y: GFSymbol): GFSymbol =
+proc `+`*(x, y: GFSymbol): GFSymbol {.inline.} =
   x xor y
 
-proc `-`*(x, y: GFSymbol): GFSymbol =
+proc `-`*(x, y: GFSymbol): GFSymbol {.inline.} =
   # in binary galois field, substraction
   # is just the same as addition (since we mod 2)
   x + y
 
-proc `*`*(x, y: GFSymbol): GFSymbol =
+proc `*`*(x, y: GFSymbol): GFSymbol {.inline.} =
   if x == 0 or y == 0:
     return 0.GFSymbol
 
   GFExp[((GFLog[x.uint] + GFLog[y.uint]) mod Degree)].GFSymbol
 
-proc `div`*(x, y: GFSymbol): GFSymbol {.raises: [DivByZeroError].} =
+proc `div`*(x, y: GFSymbol): GFSymbol {.raises: [DivByZeroError], inline.} =
   if y == 0:
     # TODO: use DivByZeroDefect once we drop 1.2.6
     raise newException(DivByZeroError, "Can't divide by 0!")
@@ -72,11 +72,11 @@ proc `div`*(x, y: GFSymbol): GFSymbol {.raises: [DivByZeroError].} =
 
   GFExp[((GFLog[x.int] + Degree) - GFLog[y.int]) mod Degree].GFSymbol
 
-proc `/`*(x, y: GFSymbol): GFSymbol =
+proc `/`*(x, y: GFSymbol): GFSymbol {.inline.} =
   x div y
 
-proc `^`*(x: GFSymbol, power: int): GFSymbol =
+proc `^`*(x: GFSymbol, power: int): GFSymbol {.inline.} =
   GFExp[(GFLog[x.int] * power.uint) mod Degree].GFSymbol
 
-proc inverse*(x: GFSymbol): GFSymbol =
+proc inverse*(x: GFSymbol): GFSymbol {.inline.} =
   GFExp[(Degree - GFLog[x.int]) mod Degree].GFSymbol
