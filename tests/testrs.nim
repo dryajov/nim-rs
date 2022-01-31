@@ -1,56 +1,27 @@
 import std/sequtils
 import std/random
 import std/unittest
+import std/times
+import std/os
+import std/strutils
 
 import ./helpers
 import rs
 
-template encodedBytes*(): untyped =
-  when Exp == 8:
-    (@[72, 101, 108, 108, 111, 32, 82, 101,
-      101, 100, 45, 83, 111, 108, 111, 109,
-      111, 110, 33].mapIt( it.GFSymbol ),
-      @[10, 54, 200, 1, 174, 73, 223, 252,
-      169, 147].mapIt( it.GFSymbol ))
-  elif Exp == 16:
-    (@[72, 101, 108, 108, 111, 32, 82, 101,
-      101, 100, 45, 83, 111, 108, 111, 109, 111,
-      110, 33]
-      .mapIt( it.GFSymbol ),
-      @[36016, 51702, 9536, 44839, 35358, 8384,
-      60905, 26494, 59225, 2106]
-      .mapIt( it.GFSymbol ))
-  elif Exp == 18:
-    (@[72, 101, 108, 108, 111, 32, 82, 101,
-      101, 100, 45, 83, 111, 108, 111, 109, 111,
-      110, 33]
-      .mapIt( it.GFSymbol ),
-      @[168077, 13380, 24621, 141427, 54004,
-        88735, 191583, 165529, 230647, 166598]
-        .mapIt( it.GFSymbol ))
-  elif Exp == 20:
-    (@[72, 101, 108, 108, 111, 32, 82, 101,
-      101, 100, 45, 83, 111, 108, 111, 109, 111,
-      110, 33]
-      .mapIt( it.GFSymbol ),
-      @[608501, 613582, 894931, 464752, 699334,
-      57844, 1014134, 84555, 292666, 699046]
-      .mapIt( it.GFSymbol ))
+let msg = "Hello Reed-Solomon!"
+  .toBytes()
+  .mapIt( it.GFSymbol )
 
 suite "Test Reed-Solomon Coding in GF " & $Exp:
   setup:
     randomize()
 
   test "Encode":
-    let msg = "Hello Reed-Solomon!"
-      .toBytes()
-      .mapIt( it.GFSymbol )
-
-    check encode(msg, 10) == encodedBytes()
+    check msg.encode(10) == encodedBytes()
 
   test "Decode with erasures":
     var
-      (msg, par) = encodedBytes()
+      par = encodedBytes()
       message = msg & par
       count = 0
       erased: seq[int]
@@ -74,7 +45,7 @@ suite "Test Reed-Solomon Coding in GF " & $Exp:
 
   test "Decode with errors":
     var
-      (msg, par) = encodedBytes()
+      par = encodedBytes()
       message = msg & par
       count = 0
 
@@ -91,7 +62,7 @@ suite "Test Reed-Solomon Coding in GF " & $Exp:
 
   test "Decode with erasures and errors":
     var
-      (msg, par) = encodedBytes()
+      par = encodedBytes()
       message = msg & par
       count = 0
       erased: seq[int]
@@ -116,3 +87,76 @@ suite "Test Reed-Solomon Coding in GF " & $Exp:
     let
       (corrected, _) = decode(message, 10, erasePos = toSeq(erased))
     check string.fromBytes(corrected.mapIt( it.byte )) == "Hello Reed-Solomon!"
+
+suite "Test shards":
+  setup:
+    randomize()
+
+  test "Test shard coding":
+    const
+      k = 20
+      n = 40
+      dataSize = 256 * 1024
+
+    var
+      data: seq[seq[GFSymbol]]
+
+    benchmark("Filling data"):
+      for i in 0..<k:
+        data.add(randomAlpha(dataSize).mapIt( it.GFSymbol ))
+
+    var shards = data
+    benchmark("Encode Loop"):
+      for i in 0..<dataSize:
+        var msg {.noinit.} = newSeq[GFSymbol](k)
+        for s in 0..<data.len:
+          msg[s] = data[s][i]
+        countBytes += msg.len.uint64
+
+        let parity = msg.encode(n - k, gen = genPoly())
+        check parity.len == n - k
+
+        for m in 0..<parity.len:
+          if (k + m) > shards.high:
+            shards.add(newSeq[GFSymbol](dataSize))
+
+          shards[k + m][i] = parity[m]
+
+    var
+      erased: seq[int]
+      count = 0
+
+    while count < k:
+      while true:
+        let row = rand(0..<k)
+        if erased.find(row) > -1:
+          continue
+
+        erased.add(row)
+        shards[row] = @[]
+        break
+
+      count += 1
+
+    var
+      rebuilt: seq[seq[GFSymbol]]
+
+    benchmark("Decode Loop"):
+      for i in 0..<dataSize:
+        var msg {.noinit.} = newSeq[GFSymbol](n)
+        for s in 0..<shards.len:
+          if shards[s].len > 0:
+            msg[s] = shards[s][i]
+          else:
+            msg[s] = 0.GFSymbol
+
+        countBytes += msg.len.uint64
+        let (orig, _) = msg.decode(k, erasePos = erased, erasures = true)
+
+        for o in 0..<orig.len:
+          if o > rebuilt.high:
+            rebuilt.add(newSeq[GFSymbol](dataSize))
+
+          rebuilt[o][i] = orig[o]
+
+      check data == rebuilt
