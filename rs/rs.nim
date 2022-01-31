@@ -23,9 +23,10 @@ proc generator*(
 
 proc encode*(
   msg: openArray[GFSymbol],
+  parity: var seq[GFSymbol],
   nsym: int,
   alpha = 2.GFSymbol,
-  gen: seq[GFSymbol] = @[]): seq[GFSymbol] {.raises: [Defect, RSError].} =
+  gen: seq[GFSymbol] = @[]) {.raises: [Defect, RSError].} =
   ## Reed-Solomon encoding
   ##
 
@@ -34,15 +35,17 @@ proc encode*(
       RSError,
       "Message is too long ( " & $(msg.len + nsym) & " when max is " & $Order & " )")
 
+  if parity.len < nsym:
+    raise newException(RSError, "Not enough parity bytes!")
+
   let
     gen = if gen.len <= 0:
       generator(nsym, alpha)
     else:
       gen
 
-  # make a new seq of size msg.len + gen.len
-  var (_, remainder) = (@msg & newSeq[GFSymbol](gen.len - 1)) / gen
-  return remainder # remainder is the RS code
+  var res {.noInit.} = newSeq[GFSymbol](msg.len)
+  divide(msg, gen, res, parity)
 
 proc syndromes*(
   msg: openArray[GFSymbol],

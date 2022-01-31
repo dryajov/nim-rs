@@ -43,7 +43,7 @@ const
 
     (@gfExp & @gfExp, gfLog)
 
-# TODO: This is only practical for GF(2^8)
+  # TODO: This is only practical for GF(2^8)
   # (MulTable*, DivTable*) = block:
   #   var
   #     mulTable {.noInit.}: array[Order, array[Order, uint]] # multiplication table

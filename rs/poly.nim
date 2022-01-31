@@ -27,10 +27,10 @@ template `+`*(p, q: openArray[GFSymbol]): seq[GFSymbol] =
 template `-`*(p, q: openArray[GFSymbol]): seq[GFSymbol] =
   move addSubs(p, q)
 
-proc `*`*(p, q: openArray[GFSymbol]): seq[GFSymbol] =
+proc `*`*(p, q: openArray[GFSymbol]): seq[GFSymbol] {.inline.} =
   ## Multiply two polynomials, inside Galois Field
   ##
-  ## Optimized function by precomputation of log.
+  ## Optimized function by precomputing the log
   ##
 
   var
@@ -49,11 +49,11 @@ proc `*`*(p, q: openArray[GFSymbol]): seq[GFSymbol] =
       let lq = GFLog[q[j].uint] # Optimization: precache the logarithm of the current coefficient of q
       for i in 0..<p.len:
         if p[i] != 0.GFSymbol: # log(0) is undefined, need to check that...
-          r[i + j] = (r[i + j] xor GFExp[(lp[i] + lq) mod Degree].GFSymbol)
+          r[i + j] = (r[i + j] xor GFExp[(lp[i] + lq)].GFSymbol)
 
   return move r
 
-proc mulSimple*(p, q: openArray[GFSymbol]): seq[GFSymbol] =
+proc mulSimple*(p, q: openArray[GFSymbol]): seq[GFSymbol] {.inline.} =
   ## Multiply two polynomials in a Galois Field
   ##
   ## simple equivalent way of multiplying two polynomials
@@ -82,9 +82,47 @@ template neg*[T](poly: openArray[GFSymbol]): seq[GFSymbol] =
 
   poly
 
+proc divide*(
+  dividend,
+  divisor: openArray[GFSymbol],
+  res,
+  remainder: var seq[GFSymbol]) {.inline.} =
+  ## Fast polynomial division by using Extended Synthetic Division and
+  ## optimized for GF(2^p) computations - doesn't work with standard
+  ## polynomials outside of this galois field, see the Wikipedia article
+  ## for generic algorithm.
+  ##
+
+  # NOTE: this function expects polynomials to follow the opposite
+  # convention at decoding: the terms must go from the biggest to lowest
+  # degree - while most other functions here expect a list from lowest
+  # to biggest degree
+  #
+  # eg: 1 + 2x + 5x^2 = [5, 2, 1], NOT [1, 2, 5]
+
+  # NOTE: Same as `div` but optimized to avoid copies
+
+  copyMem(addr res[0], unsafeAddr dividend[0], dividend.len)
+
+  for i in 0..<res.len:
+    if res[i] == 0.GFSymbol:
+      continue
+
+    # skip the first coefficient of the divisor -
+    # only used to normalize the dividend coefficient
+    for j in 1..<divisor.len:
+      if divisor[j] == 0.GFSymbol: # log(0) is undefined
+        continue
+
+      if res.len > (i + j):
+        res[i + j] = res[i + j] xor (res[i] * divisor[j])
+      else:
+        let ii = (i + j) - remainder.len
+        remainder[ii] = remainder[ii] xor (res[i] * divisor[j])
+
 proc `div`*(
   dividend,
-  divisor: openArray[GFSymbol]): (seq[GFSymbol], seq[GFSymbol]) =
+  divisor: openArray[GFSymbol]): (seq[GFSymbol], seq[GFSymbol]) {.inline.} =
   ## Fast polynomial division by using Extended Synthetic Division and
   ## optimized for GF(2^p) computations - doesn't work with standard
   ## polynomials outside of this galois field, see the Wikipedia article
