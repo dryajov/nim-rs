@@ -41,7 +41,20 @@ const
     # double the size of the anti-log table so that we don't
     # need to mod 255 to stay inside the bounds
 
-    (gfExp, gfLog)
+    (@gfExp & @gfExp, gfLog)
+
+# TODO: This is only practical for GF(2^8)
+  # (MulTable*, DivTable*) = block:
+  #   var
+  #     mulTable {.noInit.}: array[Order, array[Order, uint]] # multiplication table
+  #     divTable {.noInit.}: array[Order, array[Order, uint]] # divission table
+
+  #   for x in 0..<Order:
+  #     for y in 0..<Order:
+  #       mulTable[x][y] = GFExp[((GFLog[x] + GFLog[y]))]
+  #       divTable[x][y] = GFExp[((GFLog[x] + Degree) - GFLog[y])]
+
+  #   (mulTable, divTable)
 
 GFUintOp GFUint, bitsToUint(Exp)
 
@@ -60,7 +73,8 @@ proc `*`*(x, y: GFSymbol): GFSymbol {.inline.} =
   if x == 0 or y == 0:
     return 0.GFSymbol
 
-  GFExp[((GFLog[x.uint] + GFLog[y.uint]) mod Degree)].GFSymbol
+  GFExp[((GFLog[x.uint] + GFLog[y.uint]))].GFSymbol
+  # MulTable[x.uint][y.uint].GFSymbol
 
 proc `div`*(x, y: GFSymbol): GFSymbol {.raises: [DivByZeroError], inline.} =
   if y == 0:
@@ -70,7 +84,8 @@ proc `div`*(x, y: GFSymbol): GFSymbol {.raises: [DivByZeroError], inline.} =
   if x == 0:
     return 0.GFSymbol
 
-  GFExp[((GFLog[x.int] + Degree) - GFLog[y.int]) mod Degree].GFSymbol
+  GFExp[((GFLog[x.int] + Degree) - GFLog[y.int])].GFSymbol
+  # DivTable[x.uint][y.uint].GFSymbol
 
 proc `/`*(x, y: GFSymbol): GFSymbol {.inline.} =
   x div y
