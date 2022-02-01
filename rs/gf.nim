@@ -41,6 +41,7 @@ const
     # double the size of the anti-log table so that we don't
     # need to mod 255 to stay inside the bounds
 
+    # NOTE: double the Exponentiation table so we don't have to use `mod`
     (@gfExp & @gfExp, gfLog)
 
   # TODO: This is only practical for GF(2^8)
@@ -56,27 +57,34 @@ const
 
   #   (mulTable, divTable)
 
+  # InverseTable = block:
+  #   var inverse {.noInit.}: array[Order, uint]
+  #   for i in 0..<Order:
+  #     inverse[i] = GFExp[(Degree - GFLog[i]) mod Degree]
+
+  #   inverse
+
 GFUintOp GFUint, bitsToUint(Exp)
 
-proc `[]`*[T](a: seq[T], i: GFSymbol): T {.inline.} =
+func `[]`*[T](a: seq[T], i: GFSymbol): T {.inline.} =
   a[i.int]
 
-proc `+`*(x, y: GFSymbol): GFSymbol {.inline.} =
+func `+`*(x, y: GFSymbol): GFSymbol {.inline.} =
   x xor y
 
-proc `-`*(x, y: GFSymbol): GFSymbol {.inline.} =
+func `-`*(x, y: GFSymbol): GFSymbol {.inline.} =
   # in binary galois field, substraction
   # is just the same as addition (since we mod 2)
-  x + y
+  x xor y
 
-proc `*`*(x, y: GFSymbol): GFSymbol {.inline.} =
+func `*`*(x, y: GFSymbol): GFSymbol {.inline.} =
   if x == 0 or y == 0:
     return 0.GFSymbol
 
   GFExp[((GFLog[x.uint] + GFLog[y.uint]))].GFSymbol
   # MulTable[x.uint][y.uint].GFSymbol
 
-proc `div`*(x, y: GFSymbol): GFSymbol {.raises: [DivByZeroError], inline.} =
+func `div`*(x, y: GFSymbol): GFSymbol {.raises: [DivByZeroError], inline.} =
   if y == 0:
     # TODO: use DivByZeroDefect once we drop 1.2.6
     raise newException(DivByZeroError, "Can't divide by 0!")
@@ -87,11 +95,12 @@ proc `div`*(x, y: GFSymbol): GFSymbol {.raises: [DivByZeroError], inline.} =
   GFExp[((GFLog[x.int] + Degree) - GFLog[y.int])].GFSymbol
   # DivTable[x.uint][y.uint].GFSymbol
 
-proc `/`*(x, y: GFSymbol): GFSymbol {.inline.} =
+func `/`*(x, y: GFSymbol): GFSymbol {.inline.} =
   x div y
 
-proc `^`*(x: GFSymbol, power: int): GFSymbol {.inline.} =
+func `^`*(x: GFSymbol, power: int): GFSymbol {.inline.} =
   GFExp[(GFLog[x.int] * power.uint) mod Degree].GFSymbol
 
-proc inverse*(x: GFSymbol): GFSymbol {.inline.} =
+func inverse*(x: GFSymbol): GFSymbol {.inline.} =
   GFExp[(Degree - GFLog[x.int]) mod Degree].GFSymbol
+  # InverseTable[x.int].GFSymbol

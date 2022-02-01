@@ -5,7 +5,7 @@
 import std/[math, sequtils, tables]
 import ./gftype
 
-proc mulNoLUT*(
+func mulNoLUT*(
   x, y, prim: SomeUnsignedInt,
   order = Order,
   carryless = true): SomeUnsignedInt =
@@ -43,7 +43,7 @@ proc mulNoLUT*(
 
   r
 
-proc rwhPrimes1(n: int): seq[uint] =
+func rwhPrimes1(n: int): seq[uint] =
   ## Returns  a list of primes < n
   ##
 
@@ -64,7 +64,7 @@ proc rwhPrimes1(n: int): seq[uint] =
      if sieve.getOrDefault(floor(i/2).int, true):
        result.add((2 * i + 1).uint)
 
-proc primePolys*(
+func primePolys*(
   generator = Char,
   cExp = Exp,
   fastPrimes = true,

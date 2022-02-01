@@ -1,3 +1,5 @@
+# import nimprof
+
 {.push raises: [Defect].}
 
 {.deadCodeElim: on.}
