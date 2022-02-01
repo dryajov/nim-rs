@@ -7,7 +7,7 @@ import std/sequtils
 import ./gf
 export gf
 
-template addSubs(p, q: openArray[GFSymbol]): seq[GFSymbol] =
+template addSubs*(p, q: openArray[GFSymbol]): seq[GFSymbol] =
   ## Perform addition/substraction which in GF(2^p) are the same
   ##
   var
@@ -21,13 +21,13 @@ template addSubs(p, q: openArray[GFSymbol]): seq[GFSymbol] =
 
   r
 
-template `+`*(p, q: openArray[GFSymbol]): seq[GFSymbol] =
+func `+`*(p, q: openArray[GFSymbol]): seq[GFSymbol] {.inline.} =
   move addSubs(p, q)
 
-template `-`*(p, q: openArray[GFSymbol]): seq[GFSymbol] =
+func `-`*(p, q: openArray[GFSymbol]): seq[GFSymbol] {.inline.} =
   move addSubs(p, q)
 
-proc `*`*(p, q: openArray[GFSymbol]): seq[GFSymbol] {.inline.} =
+func `*`*(p, q: openArray[GFSymbol]): seq[GFSymbol] {.inline.} =
   ## Multiply two polynomials, inside Galois Field
   ##
   ## Optimized function by precomputing the log
@@ -53,7 +53,7 @@ proc `*`*(p, q: openArray[GFSymbol]): seq[GFSymbol] {.inline.} =
 
   return move r
 
-proc mulSimple*(p, q: openArray[GFSymbol]): seq[GFSymbol] {.inline.} =
+func mulSimple*(p, q: openArray[GFSymbol]): seq[GFSymbol] {.inline.} =
   ## Multiply two polynomials in a Galois Field
   ##
   ## simple equivalent way of multiplying two polynomials
@@ -82,7 +82,7 @@ template neg*[T](poly: openArray[GFSymbol]): seq[GFSymbol] =
 
   poly
 
-proc divide*(
+func divide*(
   dividend,
   divisor: openArray[GFSymbol],
   res,
@@ -120,7 +120,7 @@ proc divide*(
         let ii = (i - res.len + j)
         remainder[ii] = remainder[ii] xor (res[i] * divisor[j])
 
-proc `div`*(
+func `div`*(
   dividend,
   divisor: openArray[GFSymbol]): (seq[GFSymbol], seq[GFSymbol]) {.inline.} =
   ## Fast polynomial division by using Extended Synthetic Division and
@@ -160,7 +160,7 @@ template `/`*(
   divisor: openArray[GFSymbol]): (seq[GFSymbol], seq[GFSymbol]) =
   dividend div divisor
 
-proc eval*(poly: openArray[GFSymbol], x: GFSymbol | int): GFSymbol =
+func eval*(poly: openArray[GFSymbol], x: GFSymbol | int): GFSymbol {.inline.} =
   ## Evaluates a polynomial in GF(n^p) given the value for x.
   ## This is based on Horner's scheme for maximum efficiency.
   ##
