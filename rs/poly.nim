@@ -100,7 +100,7 @@ proc divide*(
   #
   # eg: 1 + 2x + 5x^2 = [5, 2, 1], NOT [1, 2, 5]
 
-  # NOTE: Same as `div` but optimized to avoid copies
+  # NOTE: Same as `div` but optimized to avoid unnecessary allocations
 
   copyMem(addr res[0], unsafeAddr dividend[0], dividend.len)
 
@@ -117,7 +117,7 @@ proc divide*(
       if res.len > (i + j):
         res[i + j] = res[i + j] xor (res[i] * divisor[j])
       else:
-        let ii = (i + j) - remainder.len
+        let ii = (i - res.len + j)
         remainder[ii] = remainder[ii] xor (res[i] * divisor[j])
 
 proc `div`*(
