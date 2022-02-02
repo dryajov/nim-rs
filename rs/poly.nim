@@ -102,8 +102,7 @@ func divide*(
 
   # NOTE: Same as `div` but optimized to avoid unnecessary allocations
 
-  copyMem(addr res[0], unsafeAddr dividend[0], dividend.len)
-
+  res = @dividend
   for i in 0..<res.len:
     if res[i] == 0.GFSymbol:
       continue
@@ -114,7 +113,7 @@ func divide*(
       if divisor[j] == 0.GFSymbol: # log(0) is undefined
         continue
 
-      if res.len > (i + j):
+      if (i + j) < res.len:
         res[i + j] = res[i + j] xor (res[i] * divisor[j])
       else:
         let ii = (i - res.len + j)
