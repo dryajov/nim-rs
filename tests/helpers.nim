@@ -47,7 +47,8 @@ template benchmark*(benchmarkName: string, code: untyped) =
     code
     let elapsed = epochTime() - t0
     let elapsedStr = elapsed.formatFloat(format = ffDecimal, precision = 3)
-    let mibs = if countBytes > 0: " MiB/s " & $(countBytes div (elapsed * 60 * 1000).uint64) else: ""
+    let elapsedMillis = (elapsed * 60 * 1000)
+    let mibs = if countBytes > 0 and elapsedMillis > 0: " MiB/s " & $(countBytes div elapsedMillis.uint64) else: ""
     echo "CPU Time [", benchmarkName, "] ", elapsedStr, "s", mibs
 
 template encodedBytes*(): untyped =
