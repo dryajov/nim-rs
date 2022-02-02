@@ -74,23 +74,19 @@ suite "Test Reed-Solomon Coding in GF " & $Exp:
       par = encodedBytes()
       message = msg & par
       count = 0
-      erased: seq[int]
-      errors: seq[int]
+      erased, errors: seq[int]
 
     # Add both, random floor(t/2) erasures and errors
-    while count < 6:
+    while count < 5:
       while true:
         let pos = rand(0..<message.len)
-        if count mod 2 == 0:
-          if errors.find(pos) > -1:
-            continue
+        if (erased & errors).contains(pos):
+          continue
 
+        if count mod 2 == 0:
           errors.add(pos)
           message[pos] = rand(0..Order.int).GFSymbol
         else:
-          if erased.find(pos) > -1:
-            continue
-
           erased.add(pos)
           message[pos] = 0.GFSymbol
 
@@ -112,6 +108,9 @@ suite "Test shards":
       k = 20
       n = 40
       dataSize = 256
+
+    var genPoly: seq[GFSymbol]
+    benchmark("Generator Polynomial"):
       genPoly = generator(n - k)
 
     var
